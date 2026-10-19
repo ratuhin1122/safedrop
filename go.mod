@@ -15,6 +15,7 @@ require (
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.23.1
 	github.com/riverqueue/river/rivertype v0.23.1
 	golang.org/x/crypto v0.51.0
+	golang.org/x/time v0.8.0
 )
 
 require (

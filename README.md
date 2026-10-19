@@ -36,6 +36,8 @@ needed values in your shell; the scaffold does not load `.env` automatically.
 
 See [accounts and ownership](internal/auth/README.md) for registration, login,
 JWT configuration, and owner-scoped file endpoints.
+See [request limits](internal/ratelimit/README.md) for upload windows, daily
+quotas, concurrency caps, and optional Turnstile registration checks.
 See [upload setup and protocol](internal/httpx/UPLOADS.md) for raw-body
 POST /v1/files and PostgreSQL integration tests.
 See [worker setup](internal/jobs/README.md) for retries and the processor interface.

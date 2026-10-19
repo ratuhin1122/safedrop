@@ -17,6 +17,7 @@ type Upload struct {
 	StubUserID, StubToken string
 	SharePresign          bool
 	JWTSecret             string
+	Abuse                 Abuse
 }
 
 func loadUpload(lookup func(string) (string, bool)) (Upload, error) {
@@ -63,5 +64,6 @@ func loadUpload(lookup func(string) (string, bool)) (Upload, error) {
 	if err != nil {
 		return u, fmt.Errorf("invalid SHARE_PRESIGN_GET")
 	}
-	return u, nil
+	u.Abuse, err = loadAbuse(lookup)
+	return u, err
 }

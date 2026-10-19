@@ -55,6 +55,10 @@ func TestUploadRollsBackFileAndRiverJob(t *testing.T) {
 	if files != 0 || queued != 0 {
 		t.Fatalf("transaction leaked files=%d jobs=%d", files, queued)
 	}
+	var usage int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM upload_usage WHERE user_id=$1", user.ID).Scan(&usage); err != nil || usage != 0 {
+		t.Fatalf("usage survived rollback: count=%d err=%v", usage, err)
+	}
 	if body, err := h.Storage.Get(ctx, key); !errors.Is(err, storage.ErrNotFound) {
 		if body != nil {
 			body.Close()

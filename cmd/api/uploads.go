@@ -11,6 +11,7 @@ import (
 	"safedrop/internal/db"
 	"safedrop/internal/httpx"
 	"safedrop/internal/jobs"
+	"safedrop/internal/ratelimit"
 	"safedrop/internal/share"
 	"safedrop/internal/storage"
 )
@@ -66,11 +67,17 @@ func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger) ([
 		}
 	}
 	handler := &httpx.UploadHandler{Auth: authenticator, Storage: store,
-		Repository: &httpx.UploadDatabase{Pool: pool, Queue: queue}, Limits: cfg.Limits, Logger: logger}
+		Repository: &httpx.UploadDatabase{Pool: pool, Queue: queue, DailyBytes: cfg.Abuse.DailyBytes}, Limits: cfg.Limits, Logger: logger,
+		Admission: ratelimit.NewUploads(cfg.Abuse.Uploads), Quota: &ratelimit.Quota{Queries: db.New(pool), Bytes: cfg.Abuse.DailyBytes}}
 	shares := &httpx.ShareHandler{Auth: authenticator, Logger: logger,
 		Service: &share.Service{Repository: &share.Postgres{Pool: pool}, Storage: store, Presign: cfg.SharePresign}}
 	accounts := auth.NewAccounts(db.New(pool), authenticator)
+	var registrationCheck auth.RegistrationCheck
+	if cfg.Abuse.TurnstileSecret != "" {
+		registrationCheck = auth.NewTurnstile(cfg.Abuse.TurnstileSecret, cfg.Abuse.TurnstileHostname)
+	}
 	files := &httpx.FilesHandler{Auth: authenticator, Queries: db.New(pool)}
-	return []httpx.RouterOption{httpx.WithUploads(handler), httpx.WithShares(shares),
-		httpx.WithAccounts(accounts), httpx.WithFiles(files)}, func() { pool.Close(); closeStore() }, nil
+	return []httpx.RouterOption{httpx.WithRateLimits(ratelimit.NewBuckets(cfg.Abuse.PerSecond, cfg.Abuse.Burst)),
+		httpx.WithUploads(handler), httpx.WithShares(shares),
+		httpx.WithAccounts(accounts, registrationCheck), httpx.WithFiles(files)}, func() { pool.Close(); closeStore() }, nil
 }

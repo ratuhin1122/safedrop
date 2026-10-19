@@ -50,13 +50,13 @@ func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix, options ...Ro
 			next.ServeHTTP(w, r)
 		})
 	})
+	for _, option := range options {
+		option(r)
+	}
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("{\"status\":\"ok\"}\n"))
 	})
-	for _, option := range options {
-		option(r)
-	}
 	return r
 }

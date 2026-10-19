@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"safedrop/internal/db"
+	"safedrop/internal/ratelimit"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,8 +27,9 @@ type UploadQueue interface {
 }
 
 type UploadDatabase struct {
-	Pool  *pgxpool.Pool
-	Queue UploadQueue
+	Pool       *pgxpool.Pool
+	Queue      UploadQueue
+	DailyBytes int64
 }
 
 func (d *UploadDatabase) CreateUpload(ctx context.Context, params db.CreateFileParams) (db.File, error) {
@@ -39,6 +42,17 @@ func (d *UploadDatabase) CreateUpload(ctx context.Context, params db.CreateFileP
 		defer cancel()
 		_ = tx.Rollback(cleanup)
 	}()
+	cap := d.DailyBytes
+	if cap <= 0 {
+		cap = math.MaxInt64
+	}
+	_, err = db.New(tx).ChargeUpload(ctx, db.ChargeUploadParams{UserID: params.OwnerID, Bytes: params.Size, QuotaBytes: cap})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return db.File{}, &ratelimit.Rejection{RetryAfter: ratelimit.UntilTomorrow(time.Now())}
+	}
+	if err != nil {
+		return db.File{}, err
+	}
 	file, err := db.New(tx).CreateFile(ctx, params)
 	if err != nil {
 		return db.File{}, err

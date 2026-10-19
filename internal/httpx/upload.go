@@ -11,6 +11,7 @@ import (
 
 	"safedrop/internal/auth"
 	"safedrop/internal/db"
+	"safedrop/internal/ratelimit"
 	"safedrop/internal/storage"
 	"safedrop/internal/validate"
 )
@@ -21,6 +22,8 @@ type UploadHandler struct {
 	Repository UploadRepository
 	Limits     validate.Limits
 	Logger     *slog.Logger
+	Admission  ratelimit.UploadLimiter
+	Quota      *ratelimit.Quota
 }
 
 func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -35,6 +38,11 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), status)
 		return
 	}
+	release, ok := h.admit(w, r, owner)
+	if !ok {
+		return
+	}
+	defer release()
 	file, err := validate.Validate(w, r, h.Limits)
 	if err != nil {
 		h.uploadError(w, r, err)
@@ -45,6 +53,12 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.Logger.ErrorContext(r.Context(), "upload temp cleanup failed", "error", err)
 		}
 	}()
+	if h.Quota != nil {
+		if err := h.Quota.Check(r.Context(), owner, file.Size); err != nil {
+			h.uploadError(w, r, err)
+			return
+		}
+	}
 	key := "incoming/" + rand.Text()
 	keep := false
 	defer func() {
@@ -81,6 +95,9 @@ func (h *UploadHandler) cleanupUpload(ctx context.Context, key string) {
 }
 
 func (h *UploadHandler) uploadError(w http.ResponseWriter, r *http.Request, err error) {
+	if limited(w, err) {
+		return
+	}
 	status, message := http.StatusInternalServerError, "upload failed"
 	switch {
 	case errors.Is(err, validate.ErrTooLarge):
