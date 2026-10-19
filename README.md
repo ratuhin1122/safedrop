@@ -34,8 +34,10 @@ needed values in your shell; the scaffold does not load `.env` automatically.
 - `make migrate`: apply goose and River migrations using `DATABASE_URL`.
   Use `make migrate MIGRATE_COMMAND=status` to inspect migration status.
 
-See [upload setup and protocol](internal/httpx/UPLOADS.md) for the development
-auth stub, raw-body POST /v1/files, and PostgreSQL integration tests.
+See [accounts and ownership](internal/auth/README.md) for registration, login,
+JWT configuration, and owner-scoped file endpoints.
+See [upload setup and protocol](internal/httpx/UPLOADS.md) for raw-body
+POST /v1/files and PostgreSQL integration tests.
 See [worker setup](internal/jobs/README.md) for retries and the processor interface.
 See [share links](internal/share/README.md) for creation, passwords, download limits,
 and periodic expiry cleanup.

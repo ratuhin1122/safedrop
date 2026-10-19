@@ -21,12 +21,17 @@ func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger) ([
 			http.Error(w, "DATABASE_URL is required", http.StatusServiceUnavailable)
 		})
 		return []httpx.RouterOption{func(r chi.Router) {
+			r.Method("POST", "/v1/auth/register", unavailable)
+			r.Method("POST", "/v1/auth/login", unavailable)
+			r.Method("GET", "/v1/files", unavailable)
+			r.Method("GET", "/v1/files/{id}", unavailable)
+			r.Method("DELETE", "/v1/files/{id}", unavailable)
 			r.Method("POST", "/v1/files", unavailable)
 			r.Method("POST", "/v1/files/{id}/shares", unavailable)
 			r.Method("GET", "/s/{token}", unavailable)
 		}}, func() {}, nil
 	}
-	authenticator, err := auth.NewStub(cfg.StubUserID, cfg.StubToken)
+	authenticator, err := auth.NewTokens(cfg.JWTSecret)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -64,5 +69,8 @@ func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger) ([
 		Repository: &httpx.UploadDatabase{Pool: pool, Queue: queue}, Limits: cfg.Limits, Logger: logger}
 	shares := &httpx.ShareHandler{Auth: authenticator, Logger: logger,
 		Service: &share.Service{Repository: &share.Postgres{Pool: pool}, Storage: store, Presign: cfg.SharePresign}}
-	return []httpx.RouterOption{httpx.WithUploads(handler), httpx.WithShares(shares)}, func() { pool.Close(); closeStore() }, nil
+	accounts := auth.NewAccounts(db.New(pool), authenticator)
+	files := &httpx.FilesHandler{Auth: authenticator, Queries: db.New(pool)}
+	return []httpx.RouterOption{httpx.WithUploads(handler), httpx.WithShares(shares),
+		httpx.WithAccounts(accounts), httpx.WithFiles(files)}, func() { pool.Close(); closeStore() }, nil
 }

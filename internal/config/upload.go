@@ -16,6 +16,7 @@ type Upload struct {
 	Limits                validate.Limits
 	StubUserID, StubToken string
 	SharePresign          bool
+	JWTSecret             string
 }
 
 func loadUpload(lookup func(string) (string, bool)) (Upload, error) {
@@ -26,6 +27,7 @@ func loadUpload(lookup func(string) (string, bool)) (Upload, error) {
 		return fallback
 	}
 	u := Upload{
+		JWTSecret:   value("JWT_SECRET", ""),
 		DatabaseURL: value("DATABASE_URL", ""), Backend: value("STORAGE_BACKEND", "local"),
 		LocalRoot:  value("STORAGE_LOCAL_ROOT", "./data"),
 		StubUserID: value("STUB_AUTH_USER_ID", ""), StubToken: value("STUB_AUTH_TOKEN", ""),

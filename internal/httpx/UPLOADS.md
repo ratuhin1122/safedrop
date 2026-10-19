@@ -5,11 +5,11 @@ Send the raw file bytes with `Authorization: Bearer <token>` and one
 or control characters). The filename extension and client Content-Type do not
 determine the detected type. Multipart form encoding is not supported here.
 
-Example using a configured development stub:
+Example using an access token returned by registration or login:
 
 ```sh
 curl --data-binary @image.png \
-  -H "Authorization: Bearer $STUB_AUTH_TOKEN" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H 'X-Filename: image.png' \
   http://localhost:8080/v1/files
 ```
@@ -40,10 +40,8 @@ commands affect application tables only.
 
 Set STORAGE_BACKEND and storage settings from `.env.example`. Without DATABASE_URL,
 the API still exposes health checks but uploads return 503. With a database,
-authentication denies all uploads until an Authenticator is provided or both
-development settings STUB_AUTH_USER_ID and STUB_AUTH_TOKEN are explicitly set.
-The stub token needs at least 32 non-whitespace bytes and maps to an already
-existing users row. It is an authentication interface stub, not user registration.
+set JWT_SECRET and obtain a token through registration or login, as documented
+in [accounts and ownership](../auth/README.md).
 
 Unit tests: `go test ./internal/httpx ./internal/auth ./internal/config`.
 Database integration tests: set TEST_DATABASE_URL to a migrated test PostgreSQL
