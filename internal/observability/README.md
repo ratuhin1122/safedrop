@@ -72,16 +72,35 @@ filenames, raw paths, or request IDs. Unauthorized/malformed upload requests and
 infrastructure failures appear in HTTP metrics; they do not invent upload results
 outside the listed vocabulary. Quota hits do not invent a rate limiter label.
 
-OpenTelemetry installs a tracer provider with a service resource, W3C Trace
-Context propagation, and parent-based 10% sampling. HTTP server spans propagate
-`traceparent` into River job arguments; worker consumer spans continue the trace.
-Older jobs without trace context start a new trace. Only route templates,
-HTTP methods/statuses, job IDs, and attempt numbers are span attributes.
+OpenTelemetry uses a no-op provider when `OTEL_EXPORTER_OTLP_ENDPOINT` is empty.
+Set it to an OTLP HTTP base URL; `/v1/traces` is appended. `OTEL_SERVICE_NAME`
+overrides the binary's service name (safedrop-api or safedrop-worker). Enabled
+tracing samples new roots and respects the parent's sampling decision. Shutdown
+flushes queued spans with a five-second deadline. Export failures log a fixed
+message without exposing endpoint credentials or telemetry payloads.
 
-`OTEL_TRACES_EXPORTER=none` (default) exports no spans. Set it to `slog` for
-sampled spans in structured logs through a bounded batch exporter. Shutdown
-flushes the exporter with a five-second deadline. This is basic SDK wiring;
-an OTLP exporter or collector is not included.
+The otelhttp server span uses the chi route template. Upload spans are
+`validate.upload`, `storage.put`, and `jobs.enqueue`. River arguments persist the
+W3C traceparent of jobs.enqueue; the worker restores it as the remote parent of
+`process_file`. Worker stages are `scan.clamav`, `imageproc.convert`, and
+`storage.move`. Converted variants are staged in private incoming/ storage before
+moving to final/. Older jobs without traceparent start a new trace. LoggerFrom
+binds trace_id and span_id from the active span. Exported attributes are limited
+to route template, method, status, job ID, and attempt; raw paths are removed.
+
+For the optional Compose Jaeger profile, set `OTEL_EXPORTER_OTLP_ENDPOINT` to
+`http://jaeger:4318`, then run `docker compose --profile tracing up --build`.
+Open [Jaeger](http://localhost:16686), upload an image, and search safedrop-api.
+Its trace includes safedrop-worker spans after processing. When running Go
+binaries on the host, use `http://localhost:4318` instead. Compose service names
+can be overridden with API_OTEL_SERVICE_NAME and WORKER_OTEL_SERVICE_NAME.
+
+Validation passed: go build ./..., go vet ./..., the full test suite with an
+isolated PostgreSQL database, and docker compose config. Tests cover no-op
+startup, an HTTP OTLP receiver, shutdown flushing, private
+attribute removal, and persisted River trace continuity through a database-backed
+upload pipeline. The pipeline uses a test scanner and encoder. Docker's daemon
+was unavailable during this step, so the Jaeger container check was not run.
 
 Implementation references: [Prometheus custom registries](https://prometheus.io/docs/guides/go-application/)
 and [OpenTelemetry Go instrumentation](https://opentelemetry.io/docs/languages/go/instrumentation/).

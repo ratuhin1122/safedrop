@@ -8,6 +8,7 @@ import (
 
 	"safedrop/internal/db"
 	"safedrop/internal/imageproc"
+	"safedrop/internal/observability"
 	"safedrop/internal/storage"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -25,7 +26,9 @@ func (p *ImageProcessor) Process(ctx context.Context, q *db.Queries, file db.Fil
 		return errors.New("image processing requires a clean scan")
 	}
 	started := time.Now()
-	variants, err := p.Engine.Generate(ctx, p.Storage, file.StorageKey, "final/"+file.ID.String())
+	convertCtx, endConvert := observability.Span(ctx, "imageproc.convert")
+	variants, err := p.Engine.Generate(convertCtx, p.Storage, file.StorageKey, "final/"+file.ID.String())
+	endConvert(err)
 	observeStage(ctx, "convert", time.Since(started))
 	if err != nil {
 		return err

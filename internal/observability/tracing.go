@@ -2,49 +2,53 @@ package observability
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"log/slog"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
-// SetupTracing installs W3C propagation and a bounded batch exporter when enabled.
-func SetupTracing(service string, logger *slog.Logger) (func(), error) {
-	options := []sdktrace.TracerProviderOption{sdktrace.WithResource(resource.NewSchemaless(attribute.String("service.name", service))),
-		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.TraceIDRatioBased(0.1)))}
-	switch exporter := os.Getenv("OTEL_TRACES_EXPORTER"); exporter {
-	case "", "none":
-	case "slog":
-		options = append(options, sdktrace.WithBatcher(spanLogger{logger}, sdktrace.WithMaxQueueSize(256), sdktrace.WithMaxExportBatchSize(64)))
-	default:
-		return nil, fmt.Errorf("OTEL_TRACES_EXPORTER must be none or slog")
-	}
-	provider := sdktrace.NewTracerProvider(options...)
-	otel.SetTracerProvider(provider)
+func SetupTracing(fallbackService string, logger *slog.Logger) (func(), error) {
 	otel.SetTextMapPropagator(propagation.TraceContext{})
+	endpoint := strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+	if endpoint == "" {
+		otel.SetTracerProvider(noop.NewTracerProvider())
+		return func() {}, nil
+	}
+	u, err := url.Parse(endpoint)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return nil, errors.New("OTEL_EXPORTER_OTLP_ENDPOINT must be an HTTP(S) base URL without credentials or query")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	exporter, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpointURL(strings.TrimRight(endpoint, "/")+"/v1/traces"), otlptracehttp.WithTimeout(5*time.Second))
+	if err != nil {
+		return nil, errors.New("initialize OTLP HTTP trace exporter")
+	}
+	service := strings.TrimSpace(os.Getenv("OTEL_SERVICE_NAME"))
+	if service == "" {
+		service = fallbackService
+	}
+	provider := sdktrace.NewTracerProvider(sdktrace.WithResource(resource.NewSchemaless(attribute.String("service.name", service))),
+		sdktrace.WithSampler(sdktrace.ParentBased(sdktrace.AlwaysSample())),
+		sdktrace.WithBatcher(privateExporter{exporter}, sdktrace.WithMaxQueueSize(256), sdktrace.WithMaxExportBatchSize(64)))
+	otel.SetTracerProvider(provider)
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(error) { logger.Warn("trace export failed") }))
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := provider.Shutdown(ctx); err != nil {
-			logger.Error("trace shutdown failed", "error", err)
+			logger.Error("trace shutdown failed")
 		}
 	}, nil
 }
-
-type spanLogger struct{ logger *slog.Logger }
-
-func (s spanLogger) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
-	for _, span := range spans {
-		s.logger.InfoContext(ctx, "trace span", "name", span.Name(), "trace_id", span.SpanContext().TraceID().String(),
-			"span_id", span.SpanContext().SpanID().String(), "parent_span_id", span.Parent().SpanID().String(),
-			"duration", span.EndTime().Sub(span.StartTime()), "status", span.Status().Code.String())
-	}
-	return nil
-}
-func (spanLogger) Shutdown(context.Context) error { return nil }

@@ -5,6 +5,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"log/slog"
+	"safedrop/internal/observability"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -40,8 +41,10 @@ func NewQueue(pool *pgxpool.Pool, logger *slog.Logger) (*Queue, error) {
 }
 
 func (q *Queue) Enqueue(ctx context.Context, tx pgx.Tx, fileID string) error {
+	ctx, end := observability.Span(ctx, "jobs.enqueue")
 	carrier := propagation.MapCarrier{}
 	otel.GetTextMapPropagator().Inject(ctx, carrier)
 	_, err := q.client.InsertTx(ctx, tx, FileArgs{FileID: fileID, TraceParent: carrier.Get("traceparent")}, nil)
+	end(err)
 	return err
 }

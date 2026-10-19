@@ -7,6 +7,7 @@ import (
 	"safedrop/internal/observability"
 
 	"github.com/go-chi/chi/v5"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type RouterOption func(chi.Router)
@@ -42,5 +43,5 @@ func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix, metrics *obse
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("{\"status\":\"ok\"}\n"))
 	})
-	return r
+	return otelhttp.NewHandler(r, "HTTP request", otelhttp.WithSpanNameFormatter(func(_ string, _ *http.Request) string { return "HTTP request" }))
 }

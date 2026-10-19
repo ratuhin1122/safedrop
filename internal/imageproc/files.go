@@ -5,7 +5,10 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strings"
+	"time"
 
+	"safedrop/internal/observability"
 	"safedrop/internal/storage"
 )
 
@@ -55,8 +58,24 @@ func upload(ctx context.Context, store storage.Store, key, path, mime string) (i
 	if info.Size() < 1 {
 		return 0, errors.New("encoder produced an empty file")
 	}
-	if err := store.Put(ctx, key, contextReader{ctx, file}, mime); err != nil {
+	staged := "incoming/processed/" + strings.TrimPrefix(key, "final/")
+	moved := false
+	defer func() {
+		if !moved {
+			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			defer cancel()
+			_ = store.Delete(cleanup, staged)
+		}
+	}()
+	if err := store.Put(ctx, staged, contextReader{ctx, file}, mime); err != nil {
 		return 0, err
 	}
+	moveCtx, endMove := observability.Span(ctx, "storage.move")
+	err = store.Move(moveCtx, staged, key)
+	endMove(err)
+	if err != nil {
+		return 0, err
+	}
+	moved = true
 	return info.Size(), nil
 }

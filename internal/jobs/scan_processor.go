@@ -37,7 +37,9 @@ func (p *ScanProcessor) Process(ctx context.Context, queries *db.Queries, file d
 			return err
 		}
 		started := time.Now()
-		result, scanErr := p.Scanner.Scan(ctx, body)
+		scanCtx, endScan := observability.Span(ctx, "scan.clamav")
+		result, scanErr := p.Scanner.Scan(scanCtx, body)
+		endScan(scanErr)
 		observeStage(ctx, "scan", time.Since(started))
 		closeErr := body.Close()
 		if scanErr != nil {

@@ -47,6 +47,7 @@ func (w *signatureWriter) Write(data []byte) (int, error) {
 
 func TestUploadAndScanShareInjectedMetrics(t *testing.T) {
 	ctx, pool, fixture, logger, _ := workerFixture(t)
+	traces := captureUploadTraces(t)
 	m := observability.NewMetrics()
 	store, err := storage.NewLocal(storage.LocalConfig{Root: t.TempDir()})
 	if err != nil {
@@ -64,6 +65,7 @@ func TestUploadAndScanShareInjectedMetrics(t *testing.T) {
 	}
 	upload := httpx.NewUploadHandler(httpx.UploadHandler{Auth: authenticator, Storage: store, Logger: logger,
 		Repository: &httpx.UploadDatabase{Pool: pool, Queue: queue}, Limits: validate.Limits{MinBytes: 1, MaxBytes: 4096, MaxPixels: 100}}, m)
+	router := httpx.NewRouter(logger, nil, m, httpx.WithUploads(upload))
 	engine, err := imageproc.NewWithEncoder(imageproc.Options{MaxBytes: 4096, MaxPixels: 20000000}, &imageTestEncoder{})
 	if err != nil {
 		t.Fatal(err)
@@ -88,7 +90,7 @@ func TestUploadAndScanShareInjectedMetrics(t *testing.T) {
 		r.Header.Set("Authorization", "Bearer "+token)
 		r.Header.Set("X-Filename", "image.png")
 		w := httptest.NewRecorder()
-		upload.ServeHTTP(w, r)
+		router.ServeHTTP(w, r)
 		if w.Code != 201 {
 			t.Fatalf("upload: %d %s", w.Code, w.Body)
 		}
@@ -102,10 +104,15 @@ func TestUploadAndScanShareInjectedMetrics(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := worker.Work(ctx, testJob(file, 1, 5)); err != nil {
+		job := testJob(file, 1, 5)
+		if err := pool.QueryRow(ctx, `SELECT args->>'traceparent' FROM river_job WHERE args->>'file_id'=$1`, file.ID.String()).Scan(&job.Args.TraceParent); err != nil {
+			t.Fatal(err)
+		}
+		if err := worker.Work(ctx, job); err != nil {
 			t.Fatal(err)
 		}
 	}
+	assertUploadTraces(t, traces.GetSpans())
 	w := httptest.NewRecorder()
 	m.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
 	for _, line := range []string{`safedrop_uploads_total{result="accepted"} 2`,

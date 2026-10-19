@@ -52,7 +52,7 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer release()
-	file, err := validate.Validate(w, r, h.Limits)
+	file, err := h.validateUpload(w, r)
 	if err != nil {
 		h.uploadError(w, r, err)
 		return
@@ -75,7 +75,10 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.cleanupUpload(r.Context(), key)
 		}
 	}()
-	if err := h.Storage.Put(r.Context(), key, file, file.MIME); err != nil {
+	putCtx, endPut := observability.Span(r.Context(), "storage.put")
+	putErr := h.Storage.Put(putCtx, key, file, file.MIME)
+	endPut(putErr)
+	if err := putErr; err != nil {
 		h.uploadError(w, r, err)
 		return
 	}
