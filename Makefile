@@ -1,4 +1,4 @@
-.PHONY: run test lint migrate
+.PHONY: run test lint migrate migrate-river
 
 GO ?= go
 GOOSE ?= goose
@@ -16,3 +16,9 @@ lint:
 
 migrate:
 	$(GOOSE) -dir migrations postgres "$(DATABASE_URL)" $(MIGRATE_COMMAND)
+ifeq ($(MIGRATE_COMMAND),up)
+	$(GO) run ./cmd/migrate
+endif
+
+migrate-river:
+	$(GO) run ./cmd/migrate

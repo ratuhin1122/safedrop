@@ -15,6 +15,7 @@ type Config struct {
 	LogLevel        slog.Level
 	ShutdownTimeout time.Duration
 	TrustedProxies  []netip.Prefix
+	Upload          Upload
 }
 
 func Load() (Config, error) { return load(os.LookupEnv) }
@@ -47,5 +48,6 @@ func load(lookup func(string) (string, bool)) (Config, error) {
 			c.TrustedProxies = append(c.TrustedProxies, prefix.Masked())
 		}
 	}
-	return c, nil
+	c.Upload, err = loadUpload(lookup)
+	return c, err
 }

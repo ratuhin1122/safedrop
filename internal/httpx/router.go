@@ -10,7 +10,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix) http.Handler {
+type RouterOption func(chi.Router)
+
+func WithUploads(handler http.Handler) RouterOption {
+	return func(r chi.Router) { r.Method(http.MethodPost, "/v1/files", handler) }
+}
+
+func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix, options ...RouterOption) http.Handler {
 	r := chi.NewRouter()
 	r.Use(TrustedProxy(trustedProxies))
 	r.Use(func(next http.Handler) http.Handler {
@@ -44,5 +50,8 @@ func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix) http.Handler 
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("{\"status\":\"ok\"}\n"))
 	})
+	for _, option := range options {
+		option(r)
+	}
 	return r
 }
