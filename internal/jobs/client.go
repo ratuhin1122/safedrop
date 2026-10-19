@@ -15,7 +15,8 @@ type WorkerOptions struct {
 	Concurrency int
 	JobTimeout  time.Duration
 	// Empty selects River's default queue. A separate queue can isolate consumers.
-	Queue string
+	Queue        string
+	ShareCleaner ShareCleaner
 }
 
 func NewWorkerClient(pool *pgxpool.Pool, logger *slog.Logger, options WorkerOptions, processor Processor) (*river.Client[pgx.Tx], error) {
@@ -28,8 +29,18 @@ func NewWorkerClient(pool *pgxpool.Pool, logger *slog.Logger, options WorkerOpti
 	if queue == "" {
 		queue = river.QueueDefault
 	}
+	var periodic []*river.PeriodicJob
+	if options.ShareCleaner != nil {
+		river.AddWorker(workers, &ExpireShares{Cleaner: options.ShareCleaner, Logger: logger})
+		periodic = []*river.PeriodicJob{river.NewPeriodicJob(river.PeriodicInterval(time.Minute),
+			func() (river.JobArgs, *river.InsertOpts) {
+				return ExpireSharesArgs{}, &river.InsertOpts{Queue: queue, MaxAttempts: 5}
+			},
+			&river.PeriodicJobOpts{RunOnStart: true})}
+	}
 	return river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Logger: logger, Workers: workers, MaxAttempts: ProcessFileMaxAttempts,
-		Queues: map[string]river.QueueConfig{queue: {MaxWorkers: options.Concurrency}},
+		PeriodicJobs: periodic,
+		Queues:       map[string]river.QueueConfig{queue: {MaxWorkers: options.Concurrency}},
 	})
 }

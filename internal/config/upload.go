@@ -15,6 +15,7 @@ type Upload struct {
 	S3                    storage.S3Config
 	Limits                validate.Limits
 	StubUserID, StubToken string
+	SharePresign          bool
 }
 
 func loadUpload(lookup func(string) (string, bool)) (Upload, error) {
@@ -56,5 +57,9 @@ func loadUpload(lookup func(string) (string, bool)) (Upload, error) {
 		return u, fmt.Errorf("MAX_IMAGE_PIXELS must be positive")
 	}
 	u.Limits.TempDir = value("UPLOAD_TEMP_DIR", "")
+	u.SharePresign, err = strconv.ParseBool(value("SHARE_PRESIGN_GET", "false"))
+	if err != nil {
+		return u, fmt.Errorf("invalid SHARE_PRESIGN_GET")
+	}
 	return u, nil
 }

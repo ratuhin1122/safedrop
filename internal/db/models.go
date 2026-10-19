@@ -22,6 +22,26 @@ type File struct {
 	DeletedAt    pgtype.Timestamptz
 }
 
+type FileCleanup struct {
+	FileID     pgtype.UUID
+	StorageKey string
+}
+
+type FileVariant struct {
+	FileID      pgtype.UUID
+	TargetWidth int32
+	Width       int32
+	Height      int32
+	Size        int64
+	Mime        string
+	StorageKey  string
+}
+
+type ShareFileDeletion struct {
+	FileID      pgtype.UUID
+	AttemptedAt pgtype.Timestamptz
+}
+
 type ShareLink struct {
 	TokenHash     []byte
 	FileID        pgtype.UUID

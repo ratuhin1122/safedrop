@@ -12,6 +12,7 @@ import (
 	"safedrop/internal/db"
 	"safedrop/internal/jobs"
 	"safedrop/internal/observability"
+	"safedrop/internal/share"
 )
 
 func main() {
@@ -36,13 +37,14 @@ func run() error {
 		return err
 	}
 	defer pool.Close()
-	processor, closeStorage, err := setupScanner(cfg.Scan, logger)
+	processor, closeStorage, err := setupScanner(cfg.Scan, pool, logger)
 	if err != nil {
 		return err
 	}
 	defer closeStorage()
 	client, err := jobs.NewWorkerClient(pool, logger, jobs.WorkerOptions{
 		Concurrency: cfg.Concurrency, JobTimeout: cfg.JobTimeout,
+		ShareCleaner: &share.Cleaner{Pool: pool, Storage: processor.Storage},
 	}, processor)
 	if err != nil {
 		return err
@@ -60,7 +62,7 @@ func run() error {
 	}
 	maintenance, cancelMaintenance := context.WithCancel(context.Background())
 	done := make(chan struct{})
-	go func() { defer close(done); jobs.RunReconciler(maintenance, pool, logger) }()
+	go func() { defer close(done); jobs.RunReconciler(maintenance, pool, logger, processor) }()
 	defer func() { cancelMaintenance(); <-done }()
 	logger.Info("worker started", "concurrency", cfg.Concurrency)
 	select {

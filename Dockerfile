@@ -1,8 +1,10 @@
-FROM golang:1.25-bookworm AS build
+FROM golang:1.25-bookworm AS dependencies
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libvips-dev pkg-config \
     && rm -rf /var/lib/apt/lists/*
+
+FROM dependencies AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -10,6 +12,9 @@ COPY . .
 ENV CGO_ENABLED=1
 RUN go build -trimpath -o /out/api ./cmd/api \
     && go build -trimpath -o /out/worker ./cmd/worker
+
+FROM build AS test
+RUN go test ./...
 
 FROM debian:bookworm-slim AS runtime
 

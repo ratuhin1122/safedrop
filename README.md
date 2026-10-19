@@ -2,8 +2,8 @@
 
 A Go service for streamed uploads, background scanning and processing, and
 sharing files through expiring links. Authenticated image upload and transactional
-job enqueueing, consumption, and clamd scanning are implemented; image processing
-and sharing come later.
+job enqueueing, consumption, clamd scanning, image variants, and expiring sharing
+are wired. Native image processing requires libvips.
 
 ## Stack
 
@@ -37,6 +37,8 @@ needed values in your shell; the scaffold does not load `.env` automatically.
 See [upload setup and protocol](internal/httpx/UPLOADS.md) for the development
 auth stub, raw-body POST /v1/files, and PostgreSQL integration tests.
 See [worker setup](internal/jobs/README.md) for retries and the processor interface.
+See [share links](internal/share/README.md) for creation, passwords, download limits,
+and periodic expiry cleanup.
 
 ## File lifecycle
 

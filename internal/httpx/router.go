@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -24,8 +25,12 @@ func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix, options ...Ro
 			started := time.Now()
 			response := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			defer func() {
+				path := r.URL.Path
+				if strings.Contains(path, "/s/") {
+					path = "/s/[redacted]"
+				}
 				logger.InfoContext(r.Context(), "http request", "method", r.Method,
-					"path", r.URL.Path, "client", r.RemoteAddr, "status", response.Status(),
+					"path", path, "client", r.RemoteAddr, "status", response.Status(),
 					"duration", time.Since(started))
 			}()
 			next.ServeHTTP(response, r)

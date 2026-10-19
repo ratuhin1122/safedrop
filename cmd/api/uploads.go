@@ -5,19 +5,26 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"safedrop/internal/auth"
 	"safedrop/internal/config"
 	"safedrop/internal/db"
 	"safedrop/internal/httpx"
 	"safedrop/internal/jobs"
+	"safedrop/internal/share"
 	"safedrop/internal/storage"
 )
 
-func setupUploads(ctx context.Context, cfg config.Upload, logger *slog.Logger) (http.Handler, func(), error) {
+func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger) ([]httpx.RouterOption, func(), error) {
 	if cfg.DatabaseURL == "" {
-		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			http.Error(w, "uploads require DATABASE_URL", http.StatusServiceUnavailable)
-		}), func() {}, nil
+		unavailable := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "DATABASE_URL is required", http.StatusServiceUnavailable)
+		})
+		return []httpx.RouterOption{func(r chi.Router) {
+			r.Method("POST", "/v1/files", unavailable)
+			r.Method("POST", "/v1/files/{id}/shares", unavailable)
+			r.Method("GET", "/s/{token}", unavailable)
+		}}, func() {}, nil
 	}
 	authenticator, err := auth.NewStub(cfg.StubUserID, cfg.StubToken)
 	if err != nil {
@@ -55,5 +62,7 @@ func setupUploads(ctx context.Context, cfg config.Upload, logger *slog.Logger) (
 	}
 	handler := &httpx.UploadHandler{Auth: authenticator, Storage: store,
 		Repository: &httpx.UploadDatabase{Pool: pool, Queue: queue}, Limits: cfg.Limits, Logger: logger}
-	return handler, func() { pool.Close(); closeStore() }, nil
+	shares := &httpx.ShareHandler{Auth: authenticator, Logger: logger,
+		Service: &share.Service{Repository: &share.Postgres{Pool: pool}, Storage: store, Presign: cfg.SharePresign}}
+	return []httpx.RouterOption{httpx.WithUploads(handler), httpx.WithShares(shares)}, func() { pool.Close(); closeStore() }, nil
 }

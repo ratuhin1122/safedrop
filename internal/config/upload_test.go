@@ -17,6 +17,7 @@ func TestUploadConfig(t *testing.T) {
 		{"pixels", map[string]string{"MAX_IMAGE_PIXELS": "0"}, true},
 		{"path style", map[string]string{"STORAGE_FORCE_PATH_STYLE": "maybe"}, true},
 		{"partial stub", map[string]string{"STUB_AUTH_TOKEN": "secret"}, true},
+		{"invalid presign flag", map[string]string{"SHARE_PRESIGN_GET": "maybe"}, true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg, err := loadUpload(func(key string) (string, bool) { value, ok := tt.env[key]; return value, ok })

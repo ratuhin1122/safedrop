@@ -55,6 +55,10 @@ func (w *ProcessFile) Work(ctx context.Context, job *river.Job[ProcessFileArgs])
 	}
 	if file.Status == "ready" || file.Status == "rejected" {
 		w.Logger.InfoContext(ctx, "process_file skipped", "file_id", job.Args.FileID, "status", file.Status)
+		_ = tx.Rollback(ctx)
+		if file.Status == "ready" {
+			return finalize(ctx, w.Processor, file)
+		}
 		if cleaner, ok := w.Processor.(interface {
 			CleanupRejected(context.Context, db.File) error
 		}); ok && file.Status == "rejected" {
@@ -108,5 +112,14 @@ func (w *ProcessFile) Work(ctx context.Context, job *river.Job[ProcessFileArgs])
 		return fmt.Errorf("process file: %w", processErr)
 	}
 	w.Logger.InfoContext(ctx, "process_file completed", "file_id", job.Args.FileID)
+	return finalize(ctx, w.Processor, file)
+}
+
+func finalize(ctx context.Context, processor Processor, file db.File) error {
+	if finalizer, ok := processor.(interface {
+		Finalize(context.Context, db.File) error
+	}); ok {
+		return finalizer.Finalize(ctx, file)
+	}
 	return nil
 }

@@ -51,3 +51,7 @@ to a migrated test PostgreSQL database to also test actual River consumption,
 pickup logging, backoff/rejection, duplicate serialization, and reconciliation.
 The consuming integration test uses a unique queue so it cannot consume upload
 tests' jobs when packages run concurrently.
+
+The production worker also registers expire_shares with a periodic schedule that
+runs on startup and once per minute. Its durable storage-deletion outbox and
+active-link preservation policy are described in [share cleanup](../share/README.md).

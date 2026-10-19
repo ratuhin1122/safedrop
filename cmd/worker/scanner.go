@@ -3,13 +3,19 @@ package main
 import (
 	"log/slog"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"safedrop/internal/config"
+	"safedrop/internal/imageproc"
 	"safedrop/internal/jobs"
 	"safedrop/internal/scan"
 	"safedrop/internal/storage"
 )
 
-func setupScanner(cfg config.WorkerScan, logger *slog.Logger) (*jobs.ScanProcessor, func(), error) {
+func setupScanner(cfg config.WorkerScan, pool *pgxpool.Pool, logger *slog.Logger) (*jobs.ScanProcessor, func(), error) {
+	engine, err := imageproc.New(imageproc.Options{AVIF: cfg.AVIF, MaxBytes: cfg.MaxBytes, MaxPixels: cfg.MaxPixels, TempDir: cfg.TempDir})
+	if err != nil {
+		return nil, nil, err
+	}
 	scanner, err := scan.NewClient(cfg.Address, cfg.Timeout, cfg.MaxBytes)
 	if err != nil {
 		return nil, nil, err
@@ -33,5 +39,6 @@ func setupScanner(cfg config.WorkerScan, logger *slog.Logger) (*jobs.ScanProcess
 			return nil, nil, err
 		}
 	}
-	return &jobs.ScanProcessor{Scanner: scanner, Storage: store, Logger: logger}, closeStore, nil
+	processor := &jobs.ImageProcessor{Engine: engine, Storage: store, Pool: pool}
+	return &jobs.ScanProcessor{Scanner: scanner, Storage: store, Logger: logger, Next: processor}, closeStore, nil
 }

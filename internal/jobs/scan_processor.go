@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"safedrop/internal/db"
 	"safedrop/internal/scan"
 	"safedrop/internal/storage"
@@ -74,4 +75,20 @@ func (p *ScanProcessor) CleanupRejected(ctx context.Context, file db.File) error
 		return nil
 	}
 	return p.Storage.Delete(ctx, file.StorageKey)
+}
+
+func (p *ScanProcessor) Finalize(ctx context.Context, file db.File) error {
+	if next, ok := p.Next.(interface {
+		Finalize(context.Context, db.File) error
+	}); ok {
+		return next.Finalize(ctx, file)
+	}
+	return nil
+}
+
+func (p *ScanProcessor) Maintain(ctx context.Context, pool *pgxpool.Pool) error {
+	if next, ok := p.Next.(Maintainer); ok {
+		return next.Maintain(ctx, pool)
+	}
+	return nil
 }

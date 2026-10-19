@@ -15,6 +15,9 @@ type WorkerScan struct {
 	MaxBytes           int64
 	Backend, LocalRoot string
 	S3                 storage.S3Config
+	AVIF               bool
+	MaxPixels          uint64
+	TempDir            string
 }
 
 func loadWorkerScan(lookup func(string) (string, bool)) (WorkerScan, error) {
@@ -45,5 +48,14 @@ func loadWorkerScan(lookup func(string) (string, bool)) (WorkerScan, error) {
 	if err != nil {
 		return c, fmt.Errorf("invalid STORAGE_FORCE_PATH_STYLE")
 	}
+	c.AVIF, err = strconv.ParseBool(value("IMAGE_OUTPUT_AVIF", "false"))
+	if err != nil {
+		return c, fmt.Errorf("IMAGE_OUTPUT_AVIF must be a boolean")
+	}
+	c.MaxPixels, err = strconv.ParseUint(value("MAX_IMAGE_PIXELS", "20000000"), 10, 64)
+	if err != nil || c.MaxPixels == 0 {
+		return c, fmt.Errorf("MAX_IMAGE_PIXELS must be positive")
+	}
+	c.TempDir = value("UPLOAD_TEMP_DIR", "")
 	return c, nil
 }

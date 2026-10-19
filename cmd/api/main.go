@@ -32,13 +32,13 @@ func run() error {
 	slog.SetDefault(logger)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	uploads, closeUploads, err := setupUploads(ctx, cfg.Upload, logger)
+	routes, closeUploads, err := setupRoutes(ctx, cfg.Upload, logger)
 	if err != nil {
 		return err
 	}
 	defer closeUploads()
 	server := &http.Server{
-		Addr: cfg.HTTPAddr, Handler: httpx.NewRouter(logger, cfg.TrustedProxies, httpx.WithUploads(uploads)),
+		Addr: cfg.HTTPAddr, Handler: httpx.NewRouter(logger, cfg.TrustedProxies, routes...),
 		ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second,
 		MaxHeaderBytes: 1 << 20, ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}

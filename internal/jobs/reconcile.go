@@ -39,7 +39,11 @@ func ReconcileExhausted(ctx context.Context, pool *pgxpool.Pool) (int64, error) 
 	return result.RowsAffected(), nil
 }
 
-func RunReconciler(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
+type Maintainer interface {
+	Maintain(context.Context, *pgxpool.Pool) error
+}
+
+func RunReconciler(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger, maintainers ...Maintainer) {
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -55,6 +59,14 @@ func RunReconciler(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger)
 			}
 			if err == nil && count > 0 {
 				logger.InfoContext(ctx, "exhausted files rejected", "count", count)
+			}
+			for _, maintainer := range maintainers {
+				attempt, cancel := context.WithTimeout(ctx, 10*time.Second)
+				err := maintainer.Maintain(attempt, pool)
+				cancel()
+				if err != nil && ctx.Err() == nil {
+					logger.ErrorContext(ctx, "file cleanup maintenance failed", "error", err)
+				}
 			}
 		}
 	}
