@@ -31,6 +31,17 @@ func TestPostgresGoneResponses(t *testing.T) {
 		if w.Code != 410 {
 			t.Fatalf("expired=%v status=%d", expired, w.Code)
 		}
+		var downloads int
+		if err := pool.QueryRow(ctx, "SELECT download_count FROM share_links WHERE file_id=$1", file.ID).Scan(&downloads); err != nil {
+			t.Fatal(err)
+		}
+		want := 1
+		if expired {
+			want = 0
+		}
+		if downloads != want {
+			t.Fatalf("denied link changed download count: %d want %d", downloads, want)
+		}
 	}
 }
 

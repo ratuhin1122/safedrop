@@ -81,6 +81,27 @@ func TestAccountsAndFileOwnership(t *testing.T) {
 		return f
 	}
 	first, second, foreign := makeFile(a), makeFile(a), makeFile(b)
+	for _, token := range []string{aToken, bToken} {
+		w := request("GET", "/v1/files?limit=100", token, "")
+		var listing struct {
+			Files []fileView `json:"files"`
+		}
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &listing) != nil {
+			t.Fatal("list failed")
+		}
+		want := 2
+		if token == bToken {
+			want = 1
+		}
+		if len(listing.Files) != want {
+			t.Fatal("unexpected owner file count")
+		}
+		for _, file := range listing.Files {
+			if (token == aToken && file.ID == foreign.ID) || (token == bToken && file.ID != foreign.ID) {
+				t.Fatal("foreign file listed")
+			}
+		}
+	}
 	if _, err := pool.Exec(ctx, "UPDATE files SET created_at='2026-01-01T00:00:00Z' WHERE owner_id=$1", a.ID); err != nil {
 		t.Fatal(err)
 	}

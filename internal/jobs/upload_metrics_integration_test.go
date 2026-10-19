@@ -2,9 +2,7 @@ package jobs
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
-	"io"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -15,7 +13,6 @@ import (
 	"safedrop/internal/httpx"
 	"safedrop/internal/imageproc"
 	"safedrop/internal/observability"
-	"safedrop/internal/scan"
 	"safedrop/internal/storage"
 	"safedrop/internal/validate"
 )
@@ -72,16 +69,7 @@ func TestUploadAndScanShareInjectedMetrics(t *testing.T) {
 	}
 	eicar, png := scanFixtures(t)
 	pipeline := &ScanProcessor{Storage: store, Logger: logger, Next: &ImageProcessor{Engine: engine, Storage: store, Pool: pool},
-		Scanner: scannerFunc(func(_ context.Context, body io.Reader) (scan.Result, error) {
-			detector := &signatureWriter{signature: eicar}
-			if _, err := io.Copy(detector, body); err != nil {
-				return scan.Result{}, err
-			}
-			if detector.found {
-				return scan.Result{Verdict: scan.Infected, Signature: "Eicar-Test"}, nil
-			}
-			return scan.Result{Verdict: scan.Clean}, nil
-		})}
+		Scanner: signatureClamd(t, eicar)}
 	worker := NewProcessFile(pool, pipeline, logger, 0, m)
 	// Appending EICAR keeps PNG validation valid while exercising background rejection.
 	infected := append(append([]byte{}, png...), eicar...)
@@ -111,6 +99,7 @@ func TestUploadAndScanShareInjectedMetrics(t *testing.T) {
 		if err := worker.Work(ctx, job); err != nil {
 			t.Fatal(err)
 		}
+		assertScannedUpload(t, ctx, pool, store, file, bytes.Equal(payload, infected))
 	}
 	assertUploadTraces(t, traces.GetSpans())
 	w := httptest.NewRecorder()
