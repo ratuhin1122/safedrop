@@ -48,7 +48,7 @@ func (d *UploadDatabase) CreateUpload(ctx context.Context, params db.CreateFileP
 	}
 	_, err = db.New(tx).ChargeUpload(ctx, db.ChargeUploadParams{UserID: params.OwnerID, Bytes: params.Size, QuotaBytes: cap})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return db.File{}, &ratelimit.Rejection{RetryAfter: ratelimit.UntilTomorrow(time.Now())}
+		return db.File{}, &ratelimit.Rejection{RetryAfter: ratelimit.UntilTomorrow(time.Now()), Kind: "quota"}
 	}
 	if err != nil {
 		return db.File{}, err

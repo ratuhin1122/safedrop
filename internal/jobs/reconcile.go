@@ -37,7 +37,7 @@ func ReconcileExhausted(ctx context.Context, pool *pgxpool.Pool) (int64, error) 
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
-	observability.DefaultMetrics.Rejected.Add(uint64(result.RowsAffected()))
+	observability.DefaultMetrics.Processed.WithLabelValues("rejected_error").Add(float64(result.RowsAffected()))
 	return result.RowsAffected(), nil
 }
 

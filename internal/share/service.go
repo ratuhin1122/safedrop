@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"time"
 
 	"safedrop/internal/db"
@@ -17,10 +18,12 @@ import (
 )
 
 var (
-	ErrGone     = errors.New("share link is unavailable")
-	ErrPassword = errors.New("share password required or incorrect")
-	ErrInvalid  = errors.New("invalid share settings")
-	ErrNotFound = errors.New("owned ready file not found")
+	ErrGone         = errors.New("share link is unavailable")
+	ErrExpired      = fmt.Errorf("%w: expired", ErrGone)
+	ErrLimitReached = fmt.Errorf("%w: download limit reached", ErrGone)
+	ErrPassword     = errors.New("share password required or incorrect")
+	ErrInvalid      = errors.New("invalid share settings")
+	ErrNotFound     = errors.New("owned ready file not found")
 )
 
 type Repository interface {

@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"safedrop/internal/db"
 	"safedrop/internal/imageproc"
+	"safedrop/internal/observability"
 	"safedrop/internal/storage"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -23,7 +25,9 @@ func (p *ImageProcessor) Process(ctx context.Context, q *db.Queries, file db.Fil
 	if file.Status != "processing" {
 		return errors.New("image processing requires a clean scan")
 	}
+	started := time.Now()
 	variants, err := p.Engine.Generate(ctx, p.Storage, file.StorageKey, "final/"+file.ID.String())
+	observability.DefaultMetrics.ObserveProcessing("convert", time.Since(started))
 	if err != nil {
 		return err
 	}

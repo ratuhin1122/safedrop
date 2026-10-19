@@ -11,6 +11,7 @@ import (
 
 	"safedrop/internal/auth"
 	"safedrop/internal/db"
+	"safedrop/internal/observability"
 	"safedrop/internal/ratelimit"
 	"safedrop/internal/storage"
 	"safedrop/internal/validate"
@@ -35,6 +36,7 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	name, status, err := checkUpload(r, h.Limits)
 	if err != nil {
+		recordUploadRejection(err)
 		http.Error(w, err.Error(), status)
 		return
 	}
@@ -79,6 +81,8 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	keep = true
+	observability.DefaultMetrics.Uploads.WithLabelValues("accepted").Inc()
+	observability.DefaultMetrics.UploadBytes.Add(float64(file.Size))
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(struct {
@@ -98,6 +102,7 @@ func (h *UploadHandler) uploadError(w http.ResponseWriter, r *http.Request, err 
 	if limited(w, err) {
 		return
 	}
+	recordUploadRejection(err)
 	status, message := http.StatusInternalServerError, "upload failed"
 	switch {
 	case errors.Is(err, validate.ErrTooLarge):

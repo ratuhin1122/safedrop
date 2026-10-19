@@ -1,76 +1,65 @@
 package observability
 
 import (
-	"context"
-	"fmt"
 	"net/http"
-	"sync"
-	"sync/atomic"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// Metrics emits Prometheus text format without unbounded request labels.
 type Metrics struct {
-	Uploads          atomic.Uint64
-	UploadRejections atomic.Uint64
-	Rejected         atomic.Uint64
-	mu               sync.Mutex
-	count            uint64
-	sum              float64
-	buckets          [8]uint64
+	Registry                               *prometheus.Registry
+	Uploads, Processed, RateLimits, Shares *prometheus.CounterVec
+	UploadBytes                            prometheus.Counter
+	Processing, HTTPDuration               *prometheus.HistogramVec
+	HTTPRequests                           *prometheus.CounterVec
 }
 
-var DefaultMetrics = &Metrics{}
-var boundaries = [...]float64{0.1, 0.5, 1, 5, 10, 30, 60, 120}
+var DefaultMetrics = NewMetrics()
 
-type QueueDepth func(context.Context) (int64, error)
-
-func (m *Metrics) ObserveProcessing(elapsed time.Duration) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	seconds := elapsed.Seconds()
-	m.count++
-	m.sum += seconds
-	for i, bound := range boundaries {
-		if seconds <= bound {
-			m.buckets[i]++
-		}
+func NewMetrics() *Metrics {
+	counter := func(name, help string, labels ...string) *prometheus.CounterVec {
+		return prometheus.NewCounterVec(prometheus.CounterOpts{Name: name, Help: help}, labels)
 	}
+	m := &Metrics{Registry: prometheus.NewRegistry(),
+		Uploads:      counter("safedrop_uploads_total", "Upload outcomes.", "result"),
+		UploadBytes:  prometheus.NewCounter(prometheus.CounterOpts{Name: "safedrop_upload_bytes_total", Help: "Bytes of committed uploads."}),
+		Processed:    counter("safedrop_files_processed_total", "Committed processing outcomes and retry attempts.", "result"),
+		RateLimits:   counter("safedrop_ratelimit_hits_total", "Denied requests by limiter.", "limiter"),
+		Shares:       counter("safedrop_share_requests_total", "Share download authorization outcomes.", "result"),
+		Processing:   prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "safedrop_processing_duration_seconds", Help: "Processing attempt duration by stage.", Buckets: []float64{0.1, 0.5, 1, 5, 10, 30, 60, 120}}, []string{"stage"}),
+		HTTPRequests: counter("http_requests_total", "HTTP requests by route template.", "method", "route", "status"),
+		HTTPDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "http_request_duration_seconds", Help: "HTTP duration by route template.", Buckets: prometheus.DefBuckets}, []string{"method", "route"}),
+	}
+	m.Registry.MustRegister(m.Uploads, m.UploadBytes, m.Processed, m.RateLimits, m.Shares, m.Processing, m.HTTPRequests, m.HTTPDuration,
+		collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	for _, v := range []string{"accepted", "rejected_size", "rejected_type", "rejected_pixels", "rate_limited", "quota_exceeded"} {
+		m.Uploads.WithLabelValues(v)
+	}
+	for _, v := range []string{"ready", "rejected_virus", "rejected_error", "retried"} {
+		m.Processed.WithLabelValues(v)
+	}
+	for _, v := range []string{"upload_window", "api_bucket", "concurrency"} {
+		m.RateLimits.WithLabelValues(v)
+	}
+	for _, v := range []string{"ok", "expired", "limit_reached", "wrong_password", "not_found"} {
+		m.Shares.WithLabelValues(v)
+	}
+	for _, v := range []string{"scan", "convert", "total"} {
+		m.Processing.WithLabelValues(v)
+	}
+	return m
 }
 
-func (m *Metrics) Handler(depth QueueDepth) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		queue, up := int64(0), 0
-		if depth != nil {
-			ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-			var err error
-			queue, err = depth(ctx)
-			cancel()
-			if err == nil {
-				up = 1
-			}
-		}
-		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-store")
-		for _, item := range []struct {
-			name, help string
-			value      uint64
-		}{
-			{"safedrop_uploads_total", "Committed HTTP uploads.", m.Uploads.Load()},
-			{"safedrop_upload_rejections_total", "Upload HTTP responses with status 4xx.", m.UploadRejections.Load()},
-			{"safedrop_rejected_total", "Files transitioned to rejected by this worker process.", m.Rejected.Load()},
-		} {
-			fmt.Fprintf(w, "# HELP %s %s\n# TYPE %s counter\n%s %d\n", item.name, item.help, item.name, item.name, item.value)
-		}
-		fmt.Fprintf(w, "# HELP safedrop_queue_depth Pending River jobs across queues.\n# TYPE safedrop_queue_depth gauge\nsafedrop_queue_depth %d\n", queue)
-		fmt.Fprintf(w, "# HELP safedrop_queue_depth_up Whether the queue query succeeded.\n# TYPE safedrop_queue_depth_up gauge\nsafedrop_queue_depth_up %d\n", up)
-		m.mu.Lock()
-		count, sum, buckets := m.count, m.sum, m.buckets
-		m.mu.Unlock()
-		fmt.Fprint(w, "# HELP safedrop_processing_duration_seconds ProcessFile attempt duration including retries.\n# TYPE safedrop_processing_duration_seconds histogram\n")
-		for i, bound := range boundaries {
-			fmt.Fprintf(w, "safedrop_processing_duration_seconds_bucket{le=\"%g\"} %d\n", bound, buckets[i])
-		}
-		fmt.Fprintf(w, "safedrop_processing_duration_seconds_bucket{le=\"+Inf\"} %d\nsafedrop_processing_duration_seconds_sum %g\nsafedrop_processing_duration_seconds_count %d\n", count, sum, count)
-	})
+func (m *Metrics) ObserveProcessing(stage string, elapsed time.Duration) {
+	m.Processing.WithLabelValues(stage).Observe(elapsed.Seconds())
+}
+
+func (m *Metrics) Handler(queue QueueStates) http.Handler {
+	// Each handler owns its queue source, independently of the shared counters.
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(newQueueCollector(queue))
+	return promhttp.HandlerFor(prometheus.Gatherers{m.Registry, registry}, promhttp.HandlerOpts{EnableOpenMetrics: false})
 }

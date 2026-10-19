@@ -10,7 +10,10 @@ import (
 	"time"
 )
 
-type Rejection struct{ RetryAfter time.Duration }
+type Rejection struct {
+	RetryAfter time.Duration
+	Kind       string
+}
 
 func (e *Rejection) Error() string { return "rate or quota limit exceeded" }
 

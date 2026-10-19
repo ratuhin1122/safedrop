@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -14,13 +15,31 @@ import (
 	"safedrop/internal/observability"
 )
 
-func QueueDepth(pool *pgxpool.Pool) observability.QueueDepth {
-	return func(ctx context.Context) (int64, error) {
-		var count int64
-		err := pool.QueryRow(ctx, `SELECT count(*) FROM river_job WHERE state IN ('available','scheduled','retryable')`).Scan(&count)
-		return count, err
+func QueueMetrics(pool *pgxpool.Pool) observability.QueueStates {
+	return func(ctx context.Context) (map[string]int64, error) {
+		rows, err := pool.Query(ctx, `SELECT state::text,count(*) FROM river_job WHERE state IN ('available','running','retryable','discarded') GROUP BY state`)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		counts := map[string]int64{}
+		for rows.Next() {
+			var state string
+			var count int64
+			if err := rows.Scan(&state, &count); err != nil {
+				return nil, err
+			}
+			counts[state] = count
+		}
+		return counts, rows.Err()
 	}
 }
+
+type processReport struct {
+	virus  bool
+	result string
+}
+type reportKey struct{}
 
 func (w *ProcessFile) Work(ctx context.Context, job *river.Job[ProcessFileArgs]) (err error) {
 	ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.MapCarrier{"traceparent": job.Args.TraceParent})
@@ -29,8 +48,15 @@ func (w *ProcessFile) Work(ctx context.Context, job *river.Job[ProcessFileArgs])
 		span.SetAttributes(attribute.Int64("job.id", job.ID), attribute.Int("job.attempt", job.Attempt))
 	}
 	started := time.Now()
+	report := &processReport{}
+	ctx = context.WithValue(ctx, reportKey{}, report)
 	defer func() {
-		observability.DefaultMetrics.ObserveProcessing(time.Since(started))
+		observability.DefaultMetrics.ObserveProcessing("total", time.Since(started))
+		var canceled *river.JobCancelError
+		var snoozed *river.JobSnoozeError
+		if err != nil && !errors.As(err, &canceled) && !errors.As(err, &snoozed) && report.result == "" && job.JobRow != nil && job.Attempt < job.MaxAttempts {
+			observability.DefaultMetrics.Processed.WithLabelValues("retried").Inc()
+		}
 		if err != nil {
 			span.SetStatus(codes.Error, "processing attempt failed")
 		}

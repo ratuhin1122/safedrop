@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"safedrop/internal/observability"
 	"safedrop/internal/ratelimit"
 )
 
@@ -15,6 +16,7 @@ func WithRateLimits(buckets *ratelimit.Buckets) RouterOption {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path != "/healthz" && r.URL.Path != "/metrics" && !(r.Method == http.MethodPost && r.URL.Path == "/v1/files") {
 					if retry := buckets.Allow(ratelimit.IP(r)); retry > 0 {
+						observability.DefaultMetrics.RateLimits.WithLabelValues("api_bucket").Inc()
 						ratelimit.Respond(w, retry)
 						return
 					}
@@ -49,6 +51,17 @@ func limited(w http.ResponseWriter, err error) bool {
 	if !errors.As(err, &rejection) {
 		return false
 	}
+	result := "rate_limited"
+	if rejection.Kind == "quota" {
+		result = "quota_exceeded"
+	} else {
+		kind := "upload_window"
+		if rejection.Kind == "concurrency" {
+			kind = "concurrency"
+		}
+		observability.DefaultMetrics.RateLimits.WithLabelValues(kind).Inc()
+	}
+	observability.DefaultMetrics.Uploads.WithLabelValues(result).Inc()
 	ratelimit.Respond(w, rejection.RetryAfter)
 	return true
 }

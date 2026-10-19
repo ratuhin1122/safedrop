@@ -23,10 +23,10 @@ func checkUpload(r *http.Request, limits validate.Limits) (string, int, error) {
 		return "", http.StatusBadRequest, errors.New("invalid X-Filename")
 	}
 	if r.ContentLength > limits.MaxBytes {
-		return "", http.StatusRequestEntityTooLarge, errors.New("upload exceeds the maximum size")
+		return "", http.StatusRequestEntityTooLarge, validate.ErrTooLarge
 	}
 	if r.Body == nil || r.ContentLength < -1 || (r.ContentLength >= 0 && r.ContentLength < limits.MinBytes) {
-		return "", http.StatusBadRequest, errors.New("upload is smaller than the minimum size")
+		return "", http.StatusBadRequest, validate.ErrTooSmall
 	}
 	return name, 0, nil
 }

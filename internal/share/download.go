@@ -30,9 +30,11 @@ func (s *Service) Open(ctx context.Context, token, password string) (Download, e
 	if err != nil {
 		return Download{}, err
 	}
-	if !link.ExpiresAt.Valid || !link.ExpiresAt.Time.After(time.Now()) ||
-		(link.MaxDownloads.Valid && link.DownloadCount >= link.MaxDownloads.Int64) {
-		return Download{}, ErrGone
+	if !link.ExpiresAt.Valid || !link.ExpiresAt.Time.After(time.Now()) {
+		return Download{}, ErrExpired
+	}
+	if link.MaxDownloads.Valid && link.DownloadCount >= link.MaxDownloads.Int64 {
+		return Download{}, ErrLimitReached
 	}
 	if link.PasswordHash.Valid {
 		if len(password) > 72 || bcrypt.CompareHashAndPassword([]byte(link.PasswordHash.String), []byte(password)) != nil {
@@ -77,9 +79,26 @@ func (s *Service) Open(ctx context.Context, token, password string) (Download, e
 			download.Body.Close()
 		}
 		if errors.Is(err, pgx.ErrNoRows) {
-			return Download{}, ErrGone
+			return Download{}, s.unavailable(ctx, hash)
 		}
 		return Download{}, err
 	}
 	return download, nil
+}
+
+func (s *Service) unavailable(ctx context.Context, hash []byte) error {
+	link, err := s.Repository.Lookup(ctx, hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrGone
+	}
+	if err != nil {
+		return err
+	}
+	if !link.ExpiresAt.Valid || !link.ExpiresAt.Time.After(time.Now()) {
+		return ErrExpired
+	}
+	if link.MaxDownloads.Valid && link.DownloadCount >= link.MaxDownloads.Int64 {
+		return ErrLimitReached
+	}
+	return ErrGone
 }

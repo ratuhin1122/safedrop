@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"safedrop/internal/db"
-	"safedrop/internal/observability"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -90,29 +89,25 @@ func (w *ProcessFile) work(ctx context.Context, job *river.Job[ProcessFileArgs])
 		w.Logger.InfoContext(ctx, "file awaiting image processing", "file_id", job.Args.FileID)
 		return river.JobSnooze(time.Minute)
 	}
-	rejected := false
+	current, err := queries.GetFile(ctx, id)
+	if err != nil {
+		return errors.Join(processErr, err)
+	}
 	if processErr == nil {
-		current, err := queries.GetFile(ctx, id)
-		if err != nil {
-			return err
-		}
 		if current.Status != "ready" && current.Status != "rejected" {
 			processErr = errors.New("processor returned before a terminal file status")
 		}
-		rejected = current.Status == "rejected"
 	}
 	if processErr != nil && job.Attempt >= job.MaxAttempts {
 		if _, err := queries.RejectFile(ctx, id); err != nil {
 			return errors.Join(processErr, err)
 		}
-		rejected = true
+		current.Status = "rejected"
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return errors.Join(processErr, err)
 	}
-	if rejected {
-		observability.DefaultMetrics.Rejected.Add(1)
-	}
+	recordProcessed(ctx, current.Status)
 	if processErr != nil {
 		w.Logger.ErrorContext(ctx, "process_file failed", "file_id", job.Args.FileID,
 			"attempt", job.Attempt, "exhausted", job.Attempt >= job.MaxAttempts, "error", processErr)

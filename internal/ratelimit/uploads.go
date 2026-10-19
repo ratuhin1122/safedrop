@@ -66,13 +66,13 @@ func (u *Uploads) Begin(ctx context.Context, user, ip string) (func(), error) {
 		}
 	}
 	if retry > 0 {
-		return nil, &Rejection{RetryAfter: retry}
+		return nil, &Rejection{RetryAfter: retry, Kind: "upload_window"}
 	}
 	if u.active[user] >= 3 {
-		return nil, &Rejection{RetryAfter: time.Second}
+		return nil, &Rejection{RetryAfter: time.Second, Kind: "concurrency"}
 	}
 	if len(u.events)+2 > 100000 {
-		return nil, &Rejection{RetryAfter: u.cfg.Window}
+		return nil, &Rejection{RetryAfter: u.cfg.Window, Kind: "upload_window"}
 	}
 	for _, key := range keys {
 		u.events[key] = append(u.events[key], now)

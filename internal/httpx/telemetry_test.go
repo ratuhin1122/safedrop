@@ -62,10 +62,10 @@ func TestRequestTelemetry(t *testing.T) {
 
 func TestMetricsEndpoint(t *testing.T) {
 	h, _ := testUploadHandler(t)
-	router := NewRouter(h.Logger, nil, WithMetrics(func(context.Context) (int64, error) { return 12, nil }))
+	router := NewRouter(h.Logger, nil, WithMetrics(func(context.Context) (map[string]int64, error) { return map[string]int64{"available": 12}, nil }))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "safedrop_queue_depth 12\n") {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `safedrop_queue_jobs{state="available"} 12`) {
 		t.Fatalf("%d %s", w.Code, w.Body)
 	}
 	w = httptest.NewRecorder()

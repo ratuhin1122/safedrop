@@ -7,7 +7,9 @@ IDs are not trusted. Request completion logs include method, redacted path,
 client address, status, and duration. Share tokens, credentials, and query
 strings are excluded from telemetry attributes.
 
-GET `/metrics` on the API exposes Prometheus text format. The worker exposes
+GET `/metrics` on the API uses `prometheus/client_golang` and custom registries.
+Go runtime and process collectors are registered; process metrics depend on OS
+support. The worker exposes
 GET `/metrics` on `WORKER_METRICS_ADDR` (default `:9091`). The worker listener is
 reachable inside the Compose network; no extra host port is published. Scrape
 each worker and API instance separately. Metrics are unauthenticated; use your
@@ -15,19 +17,35 @@ deployment network controls to restrict scraping.
 
 | Metric | Meaning |
 | --- | --- |
-| `safedrop_uploads_total` | API upload responses with HTTP 201 |
-| `safedrop_upload_rejections_total` | Upload responses with HTTP 4xx |
-| `safedrop_rejected_total` | Worker commits transitioning files to rejected, including reconciliation |
-| `safedrop_queue_depth` | PostgreSQL count of available, scheduled, or retryable River jobs across queues |
-| `safedrop_queue_depth_up` | 1 when the queue query succeeded, otherwise 0 |
-| `safedrop_processing_duration_seconds` | Histogram of ProcessFile attempt duration, including retries and skipped attempts |
+| `safedrop_uploads_total{result}` | accepted, rejected_size, rejected_type, rejected_pixels, rate_limited, quota_exceeded |
+| `safedrop_upload_bytes_total` | Actual bytes of committed uploads |
+| `safedrop_files_processed_total{result}` | ready, rejected_virus, rejected_error, retried |
+| `safedrop_processing_duration_seconds{stage}` | scan, convert, total |
+| `safedrop_queue_jobs{state}` | available, running, retryable, discarded |
+| `safedrop_ratelimit_hits_total{limiter}` | upload_window, api_bucket, concurrency |
+| `safedrop_share_requests_total{result}` | ok, expired, limit_reached, wrong_password, not_found |
+| `http_requests_total{method,route,status}` | HTTP outcomes by chi route template |
+| `http_request_duration_seconds{method,route}` | HTTP duration by chi route template |
 
 Counters and histograms are process-local and reset on restart. A crash between
-database commit and counter update can omit a rejection. Queue depth is a live
-database gauge; API and worker expose the same backlog, so aggregate it with
-`max`, not `sum`, across replicas. A failed or unconfigured database query
-exposes queue depth 0 with `queue_depth_up` 0. Scrape queries have a two-second
-timeout. Metrics contain no per-user, file, token, or request-ID labels.
+database commit and counter update can omit an outcome. Terminal replays do not
+increment processing outcomes again. `retried` counts nonterminal failed attempts
+with attempts remaining; planned snoozes and cancellations are excluded. Terminal
+outcomes are counted after commit. Reconciliation counts repaired terminal failures
+as rejected_error. Scan/convert timings measure those stages; total includes the
+whole worker attempt, even replays. Share `ok` counts authorization, including
+presigned redirects, before streaming completes. Missing/deleted links or objects
+count as not_found; an already-removed expired link cannot be distinguished.
+
+Queue gauges query PostgreSQL on each scrape. API and worker expose the same
+counts, so aggregate with `max`, not `sum`, across replicas. Queries have a
+two-second timeout; a query error fails the scrape with 500. With no database,
+all queue states are zero. HTTP route labels use chi patterns, with `unmatched`
+for unknown routes and 405 responses, including requests rejected before routing.
+Unknown HTTP methods use OTHER. Metrics never label user/file IDs, tokens,
+filenames, raw paths, or request IDs. Unauthorized/malformed upload requests and
+infrastructure failures appear in HTTP metrics; they do not invent upload results
+outside the listed vocabulary. Quota hits do not invent a rate limiter label.
 
 OpenTelemetry installs a tracer provider with a service resource, W3C Trace
 Context propagation, and parent-based 10% sampling. HTTP server spans propagate
@@ -40,7 +58,7 @@ sampled spans in structured logs through a bounded batch exporter. Shutdown
 flushes the exporter with a five-second deadline. This is basic SDK wiring;
 an OTLP exporter or collector is not included.
 
-Implementation references: [Prometheus exposition format](https://prometheus.io/docs/instrumenting/exposition_formats/)
+Implementation references: [Prometheus custom registries](https://prometheus.io/docs/guides/go-application/)
 and [OpenTelemetry Go instrumentation](https://opentelemetry.io/docs/languages/go/instrumentation/).
 
 Run `go test ./...`; tests cover request/log correlation, trace propagation,

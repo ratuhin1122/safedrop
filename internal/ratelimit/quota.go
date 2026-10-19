@@ -32,7 +32,7 @@ func (q *Quota) Check(ctx context.Context, user pgtype.UUID, size int64) error {
 		size = 1
 	}
 	if size > q.Bytes || usage.Bytes > q.Bytes-size {
-		return &Rejection{RetryAfter: UntilTomorrow(now)}
+		return &Rejection{RetryAfter: UntilTomorrow(now), Kind: "quota"}
 	}
 	return nil
 }

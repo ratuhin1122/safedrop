@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func StartMetrics(address string, depth QueueDepth, logger *slog.Logger) (func(), error) {
+func StartMetrics(address string, depth QueueStates, logger *slog.Logger) (func(), error) {
 	if address == "" {
 		address = ":9091"
 	}
