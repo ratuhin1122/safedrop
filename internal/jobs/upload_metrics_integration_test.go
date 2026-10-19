@@ -107,7 +107,7 @@ func TestUploadAndScanShareInjectedMetrics(t *testing.T) {
 		}
 	}
 	w := httptest.NewRecorder()
-	m.Handler(QueueMetrics(pool)).ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
+	m.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
 	for _, line := range []string{`safedrop_uploads_total{result="accepted"} 2`,
 		`safedrop_files_processed_total{result="ready"} 1`, `safedrop_files_processed_total{result="rejected_virus"} 1`,
 		`safedrop_processing_duration_seconds_count{stage="scan"} 2`,

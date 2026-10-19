@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -14,26 +13,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"safedrop/internal/observability"
 )
-
-func QueueMetrics(pool *pgxpool.Pool) observability.QueueStates {
-	return func(ctx context.Context) (map[string]int64, error) {
-		rows, err := pool.Query(ctx, `SELECT state::text,count(*) FROM river_job WHERE state IN ('available','running','retryable','discarded') GROUP BY state`)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-		counts := map[string]int64{}
-		for rows.Next() {
-			var state string
-			var count int64
-			if err := rows.Scan(&state, &count); err != nil {
-				return nil, err
-			}
-			counts[state] = count
-		}
-		return counts, rows.Err()
-	}
-}
 
 type processReport struct {
 	virus   bool

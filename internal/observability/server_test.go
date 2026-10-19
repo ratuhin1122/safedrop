@@ -15,7 +15,7 @@ func TestSeparateMetricsListenerAndShutdown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stop := serveMetrics(listener, nil, slog.New(slog.NewTextHandler(io.Discard, nil)), NewMetrics())
+	stop := serveMetrics(listener, slog.New(slog.NewTextHandler(io.Discard, nil)), NewMetrics())
 	defer stop()
 	client := &http.Client{Timeout: time.Second}
 	url := "http://" + listener.Addr().String()

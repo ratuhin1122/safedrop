@@ -17,7 +17,7 @@ import (
 	"safedrop/internal/storage"
 )
 
-func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger, metrics *observability.Metrics) ([]httpx.RouterOption, observability.QueueStates, func(), error) {
+func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger, metrics *observability.Metrics) ([]httpx.RouterOption, func(), error) {
 	if cfg.DatabaseURL == "" {
 		unavailable := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "DATABASE_URL is required", http.StatusServiceUnavailable)
@@ -31,20 +31,20 @@ func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger, me
 			r.Method("POST", "/v1/files", unavailable)
 			r.Method("POST", "/v1/files/{id}/shares", unavailable)
 			r.Method("GET", "/s/{token}", unavailable)
-		}}, nil, func() {}, nil
+		}}, func() {}, nil
 	}
 	authenticator, err := auth.NewTokens(cfg.JWTSecret)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	pool, err := db.OpenPool(ctx, cfg.DatabaseURL)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	queue, err := jobs.NewQueue(pool, logger)
 	if err != nil {
 		pool.Close()
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	var store storage.Store
 	closeStore := func() {}
@@ -52,7 +52,7 @@ func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger, me
 		local, err := storage.NewLocal(storage.LocalConfig{Root: cfg.LocalRoot})
 		if err != nil {
 			pool.Close()
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 		store = local
 		closeStore = func() {
@@ -64,7 +64,7 @@ func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger, me
 		store, err = storage.NewS3(cfg.S3)
 		if err != nil {
 			pool.Close()
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 	}
 	handler := httpx.NewUploadHandler(httpx.UploadHandler{Auth: authenticator, Storage: store,
@@ -78,7 +78,8 @@ func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger, me
 		registrationCheck = auth.NewTurnstile(cfg.Abuse.TurnstileSecret, cfg.Abuse.TurnstileHostname)
 	}
 	files := &httpx.FilesHandler{Auth: authenticator, Queries: db.New(pool)}
+	stopQueue := observability.StartQueue(ctx, pool, metrics, logger)
 	return []httpx.RouterOption{httpx.WithRateLimits(ratelimit.NewBuckets(cfg.Abuse.PerSecond, cfg.Abuse.Burst), metrics),
 		httpx.WithUploads(handler), httpx.WithShares(shares),
-		httpx.WithAccounts(accounts, registrationCheck), httpx.WithFiles(files)}, jobs.QueueMetrics(pool), func() { pool.Close(); closeStore() }, nil
+		httpx.WithAccounts(accounts, registrationCheck), httpx.WithFiles(files)}, func() { stopQueue(); pool.Close(); closeStore() }, nil
 }

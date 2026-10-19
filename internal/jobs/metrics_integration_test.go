@@ -3,8 +3,10 @@ package jobs
 import (
 	"context"
 	"errors"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"io"
 	"testing"
+	"time"
 
 	"safedrop/internal/db"
 	"safedrop/internal/observability"
@@ -89,13 +91,16 @@ func TestQueueStateMetrics(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	counts, err := QueueMetrics(pool)(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	m := observability.NewMetrics()
+	stop := observability.StartQueue(ctx, pool, m, logger)
+	defer stop()
+	deadline := time.Now().Add(2 * time.Second)
 	for _, state := range []string{"available", "running", "retryable", "discarded"} {
-		if counts[state] < 1 {
-			t.Fatalf("%s = %d", state, counts[state])
+		for testutil.ToFloat64(m.QueueJobs.WithLabelValues(state)) < 1 {
+			if time.Now().After(deadline) {
+				t.Fatalf("%s gauge was not updated", state)
+			}
+			time.Sleep(time.Millisecond)
 		}
 	}
 }

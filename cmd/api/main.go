@@ -38,12 +38,12 @@ func run() error {
 	defer closeTracing()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	routes, queueMetrics, closeUploads, err := setupRoutes(ctx, cfg.Upload, logger, metrics)
+	routes, closeUploads, err := setupRoutes(ctx, cfg.Upload, logger, metrics)
 	if err != nil {
 		return err
 	}
 	defer closeUploads()
-	closeMetrics, err := observability.StartMetrics(os.Getenv("METRICS_ADDR"), queueMetrics, logger, metrics)
+	closeMetrics, err := observability.StartMetrics(os.Getenv("METRICS_ADDR"), logger, metrics)
 	if err != nil {
 		return err
 	}

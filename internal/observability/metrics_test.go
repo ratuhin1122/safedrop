@@ -1,8 +1,6 @@
 package observability
 
 import (
-	"context"
-	"errors"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"net/http/httptest"
 	"strings"
@@ -23,9 +21,9 @@ func TestMetricsRegistryAndScrape(t *testing.T) {
 	}
 	wg.Wait()
 	w := httptest.NewRecorder()
-	m.Handler(func(context.Context) (map[string]int64, error) {
-		return map[string]int64{"available": 7, "running": 2}, nil
-	}).ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
+	m.QueueJobs.WithLabelValues("available").Set(7)
+	m.QueueJobs.WithLabelValues("running").Set(2)
+	m.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
 	if w.Code != 200 || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/plain") {
 		t.Fatal(w.Result())
 	}
@@ -40,14 +38,9 @@ func TestMetricsRegistryAndScrape(t *testing.T) {
 	}
 	other := NewMetrics()
 	w = httptest.NewRecorder()
-	other.Handler(nil).ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
+	other.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
 	if !strings.Contains(w.Body.String(), `safedrop_uploads_total{result="accepted"} 0`) {
 		t.Fatal("registries share counters")
-	}
-	w = httptest.NewRecorder()
-	m.Handler(func(context.Context) (map[string]int64, error) { return nil, errors.New("offline") }).ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
-	if w.Code != 500 {
-		t.Fatalf("failed queue scrape returned %d", w.Code)
 	}
 }
 

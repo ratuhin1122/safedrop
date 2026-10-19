@@ -53,10 +53,14 @@ image yields accepted=2, ready=1, rejected_virus=1. Raw EICAR text fails image
 type validation and never reaches the worker. API uploads and worker outcomes
 are scraped from their respective processes and combined in Prometheus.
 
-Queue gauges query PostgreSQL on each scrape. API and worker expose the same
-counts, so aggregate with `max`, not `sum`, across replicas. Queries have a
-two-second timeout; a query error fails the scrape with 500. With no database,
-all queue states are zero. HTTP route labels use chi patterns, with `unmatched`
+Queue gauges take one grouped PostgreSQL snapshot at startup and every 15
+seconds using the existing pool. Missing states reset to zero after successful
+polls. Queries have a five-second timeout; failures are logged and the previous
+snapshot is retained until a later poll succeeds. Scrapes never query the database
+and remain available during database failures. Pollers stop on context cancellation
+and are joined before the pool closes. API and worker expose the same counts, so
+aggregate with `max`, not `sum`, across replicas. With no database, all queue states
+are zero. HTTP route labels use chi patterns, with `unmatched`
 when chi has no final pattern, including requests rejected before routing.
 Unknown HTTP methods use OTHER. Metrics never label user/file IDs, tokens,
 filenames, raw paths, or request IDs. Unauthorized/malformed upload requests and
