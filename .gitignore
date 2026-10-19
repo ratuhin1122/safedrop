@@ -1,0 +1,23 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Build and test output
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+/coverage/
+
+# Local storage and scratch files
+/data/
+/tmp/
+*.log
+
+# Editor and operating system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
