@@ -36,9 +36,14 @@ func run() error {
 		return err
 	}
 	defer pool.Close()
+	processor, closeStorage, err := setupScanner(cfg.Scan, logger)
+	if err != nil {
+		return err
+	}
+	defer closeStorage()
 	client, err := jobs.NewWorkerClient(pool, logger, jobs.WorkerOptions{
 		Concurrency: cfg.Concurrency, JobTimeout: cfg.JobTimeout,
-	}, nil)
+	}, processor)
 	if err != nil {
 		return err
 	}

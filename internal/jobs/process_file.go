@@ -55,6 +55,11 @@ func (w *ProcessFile) Work(ctx context.Context, job *river.Job[ProcessFileArgs])
 	}
 	if file.Status == "ready" || file.Status == "rejected" {
 		w.Logger.InfoContext(ctx, "process_file skipped", "file_id", job.Args.FileID, "status", file.Status)
+		if cleaner, ok := w.Processor.(interface {
+			CleanupRejected(context.Context, db.File) error
+		}); ok && file.Status == "rejected" {
+			return cleaner.CleanupRejected(ctx, file)
+		}
 		return nil
 	}
 	w.Logger.InfoContext(ctx, "process_file started", "job_id", job.ID, "file_id", job.Args.FileID,
@@ -66,6 +71,20 @@ func (w *ProcessFile) Work(ctx context.Context, job *river.Job[ProcessFileArgs])
 		file.Status = "scanning"
 	}
 	processErr := runProcessor(ctx, w.Processor, queries, file)
+	if errors.Is(processErr, ErrProcessingPending) {
+		current, err := queries.GetFile(ctx, id)
+		if err != nil {
+			return err
+		}
+		if current.Status != "processing" {
+			return errors.New("pending processing requires a clean scan")
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return err
+		}
+		w.Logger.InfoContext(ctx, "file awaiting image processing", "file_id", job.Args.FileID)
+		return river.JobSnooze(time.Minute)
+	}
 	if processErr == nil {
 		current, err := queries.GetFile(ctx, id)
 		if err != nil {

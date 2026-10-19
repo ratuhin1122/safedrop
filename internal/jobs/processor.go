@@ -12,7 +12,8 @@ var ErrPipelineUnavailable = errors.New("scan and image processing pipeline is n
 
 // Processor runs under a per-file row lock. It must use the supplied transaction
 // queries for status updates and honor context cancellation. Success requires a
-// terminal file status. External storage operations must themselves be idempotent.
+// terminal file status, or ErrProcessingPending after a clean scan. External
+// storage operations must themselves be idempotent.
 type Processor interface {
 	Process(context.Context, *db.Queries, db.File) error
 }

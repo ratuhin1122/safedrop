@@ -14,6 +14,7 @@ type Worker struct {
 	LogLevel                    slog.Level
 	Concurrency                 int
 	JobTimeout, ShutdownTimeout time.Duration
+	Scan                        WorkerScan
 }
 
 func LoadWorker() (Worker, error) { return loadWorker(os.LookupEnv) }
@@ -45,5 +46,6 @@ func loadWorker(lookup func(string) (string, bool)) (Worker, error) {
 	if err != nil || c.ShutdownTimeout <= 0 {
 		return c, fmt.Errorf("SHUTDOWN_TIMEOUT must be a positive duration")
 	}
-	return c, nil
+	c.Scan, err = loadWorkerScan(lookup)
+	return c, err
 }

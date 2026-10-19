@@ -2,8 +2,8 @@
 
 A Go service for streamed uploads, background scanning and processing, and
 sharing files through expiring links. Authenticated image upload and transactional
-job enqueueing and consumption are implemented; the scan/processing pipeline and
-sharing come later.
+job enqueueing, consumption, and clamd scanning are implemented; image processing
+and sharing come later.
 
 ## Stack
 

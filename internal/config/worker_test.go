@@ -15,6 +15,8 @@ func TestWorkerConfig(t *testing.T) {
 		{"WORKER_CONCURRENCY", "invalid", true}, {"WORKER_CONCURRENCY", "4", false},
 		{"WORKER_JOB_TIMEOUT", "0s", true}, {"WORKER_JOB_TIMEOUT", "invalid", true},
 		{"SHUTDOWN_TIMEOUT", "-1s", true},
+		{"CLAMD_TIMEOUT", "0s", true}, {"MAX_UPLOAD_BYTES", "0", true},
+		{"STORAGE_BACKEND", "unknown", true},
 	} {
 		t.Run(tt.key+"="+tt.value, func(t *testing.T) {
 			cfg, err := loadWorker(func(key string) (string, bool) {

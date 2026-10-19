@@ -13,8 +13,8 @@ alias for the upload producer.
 ProcessFile emits JSON slog records named `process_file started`, including job
 ID, file ID, attempt, maximum attempts, and current status. Retries back off by
 2, 4, 8, and 16 seconds for new five-attempt jobs; larger attempt counts cap at
-one minute. Invalid UUID arguments cancel the job. Missing, soft-deleted, ready,
-and rejected files are acknowledged without invoking the processor.
+one minute. Invalid UUID arguments cancel the job. Missing, soft-deleted, and ready
+files are acknowledged without processing. Rejected files may retry a cleanup hook.
 
 Configuration defaults are WORKER_CONCURRENCY=2, WORKER_JOB_TIMEOUT=1m, and
 SHUTDOWN_TIMEOUT=10s. Worker startup requires DATABASE_URL. Docker Compose also
@@ -29,15 +29,16 @@ Processor panics become retryable errors. Terminal statuses are preserved.
 
 Processor receives transaction-scoped sqlc queries and the current file. It must
 honor cancellation, make external storage operations idempotent, and set a terminal
-status before returning success. It must use the supplied queries for status
+status before returning success, or return ErrProcessingPending after a clean
+scan to snooze without exhausting attempts. It must use the supplied queries for status
 updates to avoid conflicting with the row lock. Its transaction is bounded by the
 job timeout. A database error can abort that transaction; River handles the retry.
 
-The scan/image processing pipeline is intentionally not implemented in this step.
-cmd/worker uses the default processor, which returns ErrPipelineUnavailable after
-logging pickup. These jobs retry and eventually become rejected; they never
-become ready merely because a worker received them. A later pipeline can be
-passed to NewWorkerClient without changing the producer or job wire format.
+cmd/worker uses ScanProcessor with clamd and the configured storage backend.
+Infected files are rejected and deleted from incoming storage. Clean files advance
+to processing; while the image-processing stage is absent they snooze rather than
+become ready or exhaust attempts. Later processing can be passed as ScanProcessor.Next.
+See [scan setup and tests](../scan/README.md) for configuration and EICAR checks.
 
 On startup and every 15 seconds, the worker reconciles discarded process_file
 jobs with exhausted attempts against active file rows. This covers final-attempt
