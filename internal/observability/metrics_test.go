@@ -3,6 +3,7 @@ package observability
 import (
 	"context"
 	"errors"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"net/http/httptest"
 	"strings"
 	"sync"
@@ -12,9 +13,9 @@ import (
 
 func TestMetricsRegistryAndScrape(t *testing.T) {
 	m := NewMetrics()
-	m.Uploads.WithLabelValues("accepted").Add(2)
-	m.UploadBytes.Add(42)
-	m.Processed.WithLabelValues("rejected_virus").Inc()
+	m.ObserveUpload("accepted", 20)
+	m.ObserveUpload("accepted", 22)
+	m.ObserveProcessed("rejected_virus")
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -63,6 +64,7 @@ func TestMetricLabelConventions(t *testing.T) {
 		"safedrop_upload_bytes_total":          {},
 		"http_requests_total":                  {"method": "GET", "route": "/v1/files/{id}", "status": "200"},
 		"http_request_duration_seconds":        {"method": "GET", "route": "/v1/files/{id}"},
+		"safedrop_queue_jobs":                  {"state": "available running retryable discarded"},
 	}
 	families, err := m.Registry.Gather()
 	if err != nil {
@@ -87,5 +89,40 @@ func TestMetricLabelConventions(t *testing.T) {
 	}
 	if len(allowed) != 0 {
 		t.Fatalf("missing metric families: %v", allowed)
+	}
+}
+
+func TestObservationHelpers(t *testing.T) {
+	m := NewMetrics()
+	for _, result := range []string{"accepted", "rejected_size", "rejected_type", "rejected_pixels", "rate_limited", "quota_exceeded"} {
+		m.ObserveUpload(result, 128)
+		if got := testutil.ToFloat64(m.Uploads.WithLabelValues(result)); got != 1 {
+			t.Errorf("upload %s=%g", result, got)
+		}
+	}
+	for _, result := range []string{"ready", "rejected_virus", "rejected_error", "retried"} {
+		m.ObserveProcessed(result)
+		if got := testutil.ToFloat64(m.Processed.WithLabelValues(result)); got != 1 {
+			t.Errorf("processed %s=%g", result, got)
+		}
+	}
+	m.ObserveUpload("private-user-id", 1000)
+	m.ObserveProcessed("private-file-id")
+	m.ObserveUpload("accepted", -1)
+	if got := testutil.ToFloat64(m.UploadBytes); got != 128 {
+		t.Fatalf("accepted bytes=%g", got)
+	}
+	if got := testutil.ToFloat64(m.Uploads.WithLabelValues("accepted")); got != 2 {
+		t.Fatal(got)
+	}
+	if count := testutil.CollectAndCount(m.Uploads); count != 6 {
+		t.Fatalf("upload labels: %d", count)
+	}
+	if count := testutil.CollectAndCount(m.Processed); count != 4 {
+		t.Fatalf("processed labels: %d", count)
+	}
+	other := NewMetrics()
+	if got := testutil.ToFloat64(other.UploadBytes); got != 0 {
+		t.Fatal("registries share state")
 	}
 }

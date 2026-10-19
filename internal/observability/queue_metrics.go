@@ -2,36 +2,31 @@ package observability
 
 import (
 	"context"
+	"net/http"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type QueueStates func(context.Context) (map[string]int64, error)
-type queueCollector struct {
-	query QueueStates
-	desc  *prometheus.Desc
-}
 
 var queueStates = []string{"available", "running", "retryable", "discarded"}
 
-func newQueueCollector(query QueueStates) *queueCollector {
-	return &queueCollector{query: query, desc: prometheus.NewDesc("safedrop_queue_jobs", "River jobs by state across queues.", []string{"state"}, nil)}
-}
-func (c *queueCollector) Describe(ch chan<- *prometheus.Desc) { ch <- c.desc }
-func (c *queueCollector) Collect(ch chan<- prometheus.Metric) {
-	counts := map[string]int64{}
-	if c.query != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		var err error
-		counts, err = c.query(ctx)
-		cancel()
-		if err != nil {
-			ch <- prometheus.NewInvalidMetric(c.desc, err)
-			return
+func (m *Metrics) Handler(query QueueStates) http.Handler {
+	handler := promhttp.HandlerFor(m.Registry, promhttp.HandlerOpts{EnableOpenMetrics: false})
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if query != nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+			counts, err := query(ctx)
+			cancel()
+			if err != nil {
+				http.Error(w, "queue metrics unavailable", http.StatusInternalServerError)
+				return
+			}
+			for _, state := range queueStates {
+				m.QueueJobs.WithLabelValues(state).Set(float64(counts[state]))
+			}
 		}
-	}
-	for _, state := range queueStates {
-		ch <- prometheus.MustNewConstMetric(c.desc, prometheus.GaugeValue, float64(counts[state]), state)
-	}
+		handler.ServeHTTP(w, r)
+	})
 }
