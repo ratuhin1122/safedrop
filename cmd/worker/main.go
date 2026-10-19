@@ -28,7 +28,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	logger := observability.NewLogger(os.Stdout, cfg.LogLevel).With("service", "safedrop-worker")
+	logger, err := observability.NewLoggerFromEnv(os.Stdout)
+	if err != nil {
+		return err
+	}
+	logger = logger.With("service", "safedrop-worker")
 	slog.SetDefault(logger)
 	metrics := observability.NewMetrics()
 	closeTracing, err := observability.SetupTracing("safedrop-worker", logger)

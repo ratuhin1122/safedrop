@@ -119,7 +119,7 @@ func (w *ProcessFile) work(ctx context.Context, job *river.Job[ProcessFileArgs])
 	recordProcessed(ctx, current.Status)
 	if processErr != nil {
 		w.Logger.ErrorContext(ctx, "process_file failed", "file_id", job.Args.FileID,
-			"attempt", job.Attempt, "exhausted", job.Attempt >= job.MaxAttempts, "error", processErr)
+			"attempt", job.Attempt, "exhausted", job.Attempt >= job.MaxAttempts, "reason", "processing_error")
 		return fmt.Errorf("process file: %w", processErr)
 	}
 	w.Logger.InfoContext(ctx, "process_file completed", "file_id", job.Args.FileID)

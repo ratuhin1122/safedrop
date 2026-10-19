@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"safedrop/internal/db"
+	"safedrop/internal/observability"
 )
 
 var ErrCredentials = errors.New("invalid credentials")
@@ -48,6 +49,7 @@ func (a *Accounts) Exchange(ctx context.Context, email, password string, registe
 		if err != nil {
 			return "", err
 		}
+		observability.SetUserID(ctx, u.ID.String())
 		return a.Tokens.Issue(u.ID), nil
 	}
 	u, err := a.Queries.GetUserByEmail(ctx, email)
@@ -61,5 +63,6 @@ func (a *Accounts) Exchange(ctx context.Context, email, password string, registe
 	if err != nil || !valid {
 		return "", ErrCredentials
 	}
+	observability.SetUserID(ctx, u.ID.String())
 	return a.Tokens.Issue(u.ID), nil
 }

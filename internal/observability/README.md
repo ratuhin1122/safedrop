@@ -1,11 +1,16 @@
 # Logs, metrics, and traces
 
-Every HTTP request receives a server-generated 128-bit `X-Request-ID` response
-header. The ID is stored in context and included by the JSON slog handler,
-alongside `trace_id` and `span_id` when a span context exists. Incoming request
-IDs are not trusted. Request completion logs include method, redacted path,
-client address, status, and duration. Share tokens, credentials, and query
-strings are excluded from telemetry attributes.
+LOG_LEVEL selects the JSON slog level (INFO by default). Each request preserves
+one valid X-Request-ID (1–64 ASCII letters, digits, hyphens or underscores), or
+generates a random 128-bit ID. It is stored in context and the response header.
+Exactly one completion record includes request_id, method, chi route template
+(unmatched if absent), status, duration_ms, and user_id when authentication has
+identified the caller. LoggerFrom(ctx) also binds trace_id/span_id when present,
+including calls without an explicit Context argument. Raw URLs, query strings,
+Authorization headers, passwords, share tokens, and file contents are not logged.
+Panic values and scanner signatures are omitted. Rejections produce an additional
+WARN domain event with file_id and a fixed reason (virus or rejected_type, etc.).
+Pre-persistence rejections use a generated attempt UUID; there is no database row.
 
 Both binaries serve GET `/metrics` on a separate listener configured by
 `METRICS_ADDR` (default `:9090`), using `promhttp.HandlerFor` with the custom

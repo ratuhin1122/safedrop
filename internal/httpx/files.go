@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"safedrop/internal/auth"
 	"safedrop/internal/db"
+	"safedrop/internal/observability"
 )
 
 type FileQueries interface {
@@ -40,6 +41,7 @@ func (h *FilesHandler) owner(w http.ResponseWriter, r *http.Request) (pgtype.UUI
 		http.Error(w, "authentication required", 401)
 		return id, false
 	}
+	observability.SetUserID(r.Context(), id.String())
 	return id, true
 }
 

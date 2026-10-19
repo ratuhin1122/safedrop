@@ -17,11 +17,18 @@ func RequestID(ctx context.Context) string { id, _ := ctx.Value(requestKey{}).(s
 type contextHandler struct{ slog.Handler }
 
 func (h contextHandler) Handle(ctx context.Context, record slog.Record) error {
-	if id := RequestID(ctx); id != "" {
+	seen := map[string]bool{}
+	record.Attrs(func(attr slog.Attr) bool { seen[attr.Key] = true; return true })
+	if id := RequestID(ctx); id != "" && !seen["request_id"] {
 		record.AddAttrs(slog.String("request_id", id))
 	}
 	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
-		record.AddAttrs(slog.String("trace_id", sc.TraceID().String()), slog.String("span_id", sc.SpanID().String()))
+		if !seen["trace_id"] {
+			record.AddAttrs(slog.String("trace_id", sc.TraceID().String()))
+		}
+		if !seen["span_id"] {
+			record.AddAttrs(slog.String("span_id", sc.SpanID().String()))
+		}
 	}
 	return h.Handler.Handle(ctx, record)
 }

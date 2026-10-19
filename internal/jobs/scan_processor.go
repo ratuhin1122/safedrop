@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"safedrop/internal/db"
+	"safedrop/internal/observability"
 	"safedrop/internal/scan"
 	"safedrop/internal/storage"
 )
@@ -50,7 +51,7 @@ func (p *ScanProcessor) Process(ctx context.Context, queries *db.Queries, file d
 			if _, err := queries.RejectFile(ctx, file.ID); err != nil {
 				return err
 			}
-			p.Logger.WarnContext(ctx, "file infected", "file_id", file.ID.String(), "signature", result.Signature)
+			observability.LogRejection(ctx, p.Logger, file.ID.String(), "virus")
 			return errors.Join(closeErr, p.CleanupRejected(ctx, file))
 		case scan.Clean:
 			if closeErr != nil {

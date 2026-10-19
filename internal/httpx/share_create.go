@@ -43,6 +43,7 @@ func (h *ShareHandler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "authentication required", http.StatusUnauthorized)
 		return
 	}
+	observability.SetUserID(r.Context(), owner.String())
 	var id pgtype.UUID
 	if err := id.Scan(chi.URLParam(r, "id")); err != nil || !id.Valid {
 		http.Error(w, "invalid file id", 400)

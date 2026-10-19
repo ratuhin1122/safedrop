@@ -5,11 +5,8 @@ import (
 	"net/http"
 	"net/netip"
 	"safedrop/internal/observability"
-	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 type RouterOption func(chi.Router)
@@ -23,26 +20,7 @@ func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix, metrics *obse
 	r.Use(TrustedProxy(trustedProxies))
 	r.Use(metrics.HTTPMiddleware)
 	r.Use(requestTelemetry)
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			started := time.Now()
-			response := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-			defer func() {
-				status := response.Status()
-				if status == 0 {
-					status = http.StatusOK
-				}
-				path := r.URL.Path
-				if strings.Contains(path, "/s/") {
-					path = "/s/[redacted]"
-				}
-				logger.InfoContext(r.Context(), "http request", "method", r.Method,
-					"path", path, "client", r.RemoteAddr, "status", status,
-					"duration", time.Since(started))
-			}()
-			next.ServeHTTP(response, r)
-		})
-	})
+	r.Use(observability.RequestLogging(logger))
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
@@ -50,7 +28,6 @@ func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix, metrics *obse
 					if recovered == http.ErrAbortHandler {
 						panic(recovered)
 					}
-					logger.ErrorContext(r.Context(), "http panic", "panic", recovered)
 					http.Error(w, "internal server error", http.StatusInternalServerError)
 				}
 			}()

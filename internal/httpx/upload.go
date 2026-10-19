@@ -40,9 +40,10 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "authentication required", http.StatusUnauthorized)
 		return
 	}
+	observability.SetUserID(r.Context(), owner.String())
 	name, status, err := checkUpload(r, h.Limits)
 	if err != nil {
-		h.recordUploadRejection(err)
+		h.recordUploadRejection(r.Context(), err)
 		http.Error(w, err.Error(), status)
 		return
 	}
@@ -58,7 +59,7 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			h.Logger.ErrorContext(r.Context(), "upload temp cleanup failed", "error", err)
+			h.Logger.ErrorContext(r.Context(), "upload temp cleanup failed")
 		}
 	}()
 	if h.Quota != nil {
@@ -99,7 +100,7 @@ func (h *UploadHandler) cleanupUpload(ctx context.Context, key string) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	if err := h.Storage.Delete(ctx, key); err != nil {
-		h.Logger.ErrorContext(ctx, "incoming upload cleanup failed", "key", key, "error", err)
+		h.Logger.ErrorContext(ctx, "incoming upload cleanup failed")
 	}
 }
 
@@ -107,7 +108,7 @@ func (h *UploadHandler) uploadError(w http.ResponseWriter, r *http.Request, err 
 	if h.limited(w, err) {
 		return
 	}
-	h.recordUploadRejection(err)
+	h.recordUploadRejection(r.Context(), err)
 	status, message := http.StatusInternalServerError, "upload failed"
 	switch {
 	case errors.Is(err, validate.ErrTooLarge):
@@ -120,7 +121,7 @@ func (h *UploadHandler) uploadError(w http.ResponseWriter, r *http.Request, err 
 		status, message = http.StatusRequestTimeout, "upload canceled or timed out"
 	}
 	if status == http.StatusInternalServerError {
-		h.Logger.ErrorContext(r.Context(), "upload failed", "error", err)
+		h.Logger.ErrorContext(r.Context(), "upload failed")
 	}
 	http.Error(w, message, status)
 }

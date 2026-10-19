@@ -1,11 +1,13 @@
 package httpx
 
 import (
+	"context"
 	"errors"
+	"safedrop/internal/observability"
 	"safedrop/internal/validate"
 )
 
-func (h *UploadHandler) recordUploadRejection(err error) {
+func (h *UploadHandler) recordUploadRejection(ctx context.Context, err error) {
 	result := ""
 	switch {
 	case errors.Is(err, validate.ErrTooLarge), errors.Is(err, validate.ErrTooSmall):
@@ -17,5 +19,6 @@ func (h *UploadHandler) recordUploadRejection(err error) {
 	}
 	if result != "" {
 		h.Metrics.ObserveUpload(result, 0)
+		observability.LogRejection(ctx, h.Logger, "", result)
 	}
 }

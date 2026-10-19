@@ -27,6 +27,7 @@ func StartMetrics(address string, logger *slog.Logger, metrics *Metrics) (func()
 func serveMetrics(listener net.Listener, logger *slog.Logger, metrics *Metrics) func() {
 	mux := chi.NewRouter()
 	mux.Use(metrics.HTTPMiddleware)
+	mux.Use(RequestLogging(logger))
 	mux.Get("/metrics", metrics.Handler().ServeHTTP)
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second}
 	go func() {

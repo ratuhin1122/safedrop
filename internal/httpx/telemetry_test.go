@@ -45,7 +45,7 @@ func TestRequestTelemetry(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, r)
 	id := w.Header().Get("X-Request-ID")
-	if len(id) != 32 || !strings.Contains(logs.String(), `"request_id":"`+id+`"`) {
+	if id != "untrusted-id" || !strings.Contains(logs.String(), `"request_id":"`+id+`"`) {
 		t.Fatal(logs.String())
 	}
 	if strings.Contains(logs.String(), "secret-token") {
