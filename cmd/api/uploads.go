@@ -78,6 +78,6 @@ func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger) ([
 	}
 	files := &httpx.FilesHandler{Auth: authenticator, Queries: db.New(pool)}
 	return []httpx.RouterOption{httpx.WithRateLimits(ratelimit.NewBuckets(cfg.Abuse.PerSecond, cfg.Abuse.Burst)),
-		httpx.WithUploads(handler), httpx.WithShares(shares),
+		httpx.WithMetrics(jobs.QueueDepth(pool)), httpx.WithUploads(handler), httpx.WithShares(shares),
 		httpx.WithAccounts(accounts, registrationCheck), httpx.WithFiles(files)}, func() { pool.Close(); closeStore() }, nil
 }

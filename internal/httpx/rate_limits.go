@@ -13,7 +13,7 @@ func WithRateLimits(buckets *ratelimit.Buckets) RouterOption {
 	return func(r chi.Router) {
 		r.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path != "/healthz" && !(r.Method == http.MethodPost && r.URL.Path == "/v1/files") {
+				if r.URL.Path != "/healthz" && r.URL.Path != "/metrics" && !(r.Method == http.MethodPost && r.URL.Path == "/v1/files") {
 					if retry := buckets.Allow(ratelimit.IP(r)); retry > 0 {
 						ratelimit.Respond(w, retry)
 						return

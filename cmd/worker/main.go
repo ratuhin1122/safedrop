@@ -28,8 +28,13 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	logger := observability.NewLogger(os.Stdout, cfg.LogLevel)
+	logger := observability.NewLogger(os.Stdout, cfg.LogLevel).With("service", "safedrop-worker")
 	slog.SetDefault(logger)
+	closeTracing, err := observability.SetupTracing("safedrop-worker", logger)
+	if err != nil {
+		return err
+	}
+	defer closeTracing()
 	signals, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	pool, err := db.OpenPool(signals, cfg.DatabaseURL)
@@ -37,6 +42,11 @@ func run() error {
 		return err
 	}
 	defer pool.Close()
+	closeMetrics, err := observability.StartMetrics(os.Getenv("WORKER_METRICS_ADDR"), jobs.QueueDepth(pool), logger)
+	if err != nil {
+		return err
+	}
+	defer closeMetrics()
 	processor, closeStorage, err := setupScanner(cfg.Scan, pool, logger)
 	if err != nil {
 		return err

@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"log/slog"
+	"safedrop/internal/observability"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -36,6 +37,7 @@ func ReconcileExhausted(ctx context.Context, pool *pgxpool.Pool) (int64, error) 
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
+	observability.DefaultMetrics.Rejected.Add(uint64(result.RowsAffected()))
 	return result.RowsAffected(), nil
 }
 

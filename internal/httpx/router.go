@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"safedrop/internal/observability"
 	"strings"
 	"time"
 
@@ -20,17 +21,22 @@ func WithUploads(handler http.Handler) RouterOption {
 func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix, options ...RouterOption) http.Handler {
 	r := chi.NewRouter()
 	r.Use(TrustedProxy(trustedProxies))
+	r.Use(requestTelemetry)
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			started := time.Now()
 			response := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			defer func() {
+				status := response.Status()
+				if status == 0 {
+					status = http.StatusOK
+				}
 				path := r.URL.Path
 				if strings.Contains(path, "/s/") {
 					path = "/s/[redacted]"
 				}
 				logger.InfoContext(r.Context(), "http request", "method", r.Method,
-					"path", path, "client", r.RemoteAddr, "status", response.Status(),
+					"path", path, "client", r.RemoteAddr, "status", status,
 					"duration", time.Since(started))
 			}()
 			next.ServeHTTP(response, r)
@@ -52,6 +58,9 @@ func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix, options ...Ro
 	})
 	for _, option := range options {
 		option(r)
+	}
+	if !r.Match(chi.NewRouteContext(), http.MethodGet, "/metrics") {
+		r.Get("/metrics", observability.DefaultMetrics.Handler(nil).ServeHTTP)
 	}
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

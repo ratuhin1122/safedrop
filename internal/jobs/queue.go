@@ -2,6 +2,8 @@ package jobs
 
 import (
 	"context"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"log/slog"
 
 	"github.com/jackc/pgx/v5"
@@ -13,7 +15,8 @@ import (
 const ProcessFileMaxAttempts = 5
 
 type ProcessFileArgs struct {
-	FileID string `json:"file_id"`
+	FileID      string `json:"file_id"`
+	TraceParent string `json:"traceparent,omitempty"`
 }
 
 func (ProcessFileArgs) Kind() string { return "process_file" }
@@ -37,6 +40,8 @@ func NewQueue(pool *pgxpool.Pool, logger *slog.Logger) (*Queue, error) {
 }
 
 func (q *Queue) Enqueue(ctx context.Context, tx pgx.Tx, fileID string) error {
-	_, err := q.client.InsertTx(ctx, tx, FileArgs{FileID: fileID}, nil)
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	_, err := q.client.InsertTx(ctx, tx, FileArgs{FileID: fileID, TraceParent: carrier.Get("traceparent")}, nil)
 	return err
 }

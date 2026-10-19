@@ -28,8 +28,13 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	logger := observability.NewLogger(os.Stdout, cfg.LogLevel)
+	logger := observability.NewLogger(os.Stdout, cfg.LogLevel).With("service", "safedrop-api")
 	slog.SetDefault(logger)
+	closeTracing, err := observability.SetupTracing("safedrop-api", logger)
+	if err != nil {
+		return err
+	}
+	defer closeTracing()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	routes, closeUploads, err := setupRoutes(ctx, cfg.Upload, logger)
