@@ -30,6 +30,7 @@ func run() error {
 	}
 	logger := observability.NewLogger(os.Stdout, cfg.LogLevel).With("service", "safedrop-api")
 	slog.SetDefault(logger)
+	metrics := observability.NewMetrics()
 	closeTracing, err := observability.SetupTracing("safedrop-api", logger)
 	if err != nil {
 		return err
@@ -37,18 +38,18 @@ func run() error {
 	defer closeTracing()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	routes, queueMetrics, closeUploads, err := setupRoutes(ctx, cfg.Upload, logger)
+	routes, queueMetrics, closeUploads, err := setupRoutes(ctx, cfg.Upload, logger, metrics)
 	if err != nil {
 		return err
 	}
 	defer closeUploads()
-	closeMetrics, err := observability.StartMetrics(os.Getenv("METRICS_ADDR"), queueMetrics, logger)
+	closeMetrics, err := observability.StartMetrics(os.Getenv("METRICS_ADDR"), queueMetrics, logger, metrics)
 	if err != nil {
 		return err
 	}
 	defer closeMetrics()
 	server := &http.Server{
-		Addr: cfg.HTTPAddr, Handler: httpx.NewRouter(logger, cfg.TrustedProxies, routes...),
+		Addr: cfg.HTTPAddr, Handler: httpx.NewRouter(logger, cfg.TrustedProxies, metrics, routes...),
 		ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second,
 		MaxHeaderBytes: 1 << 20, ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}

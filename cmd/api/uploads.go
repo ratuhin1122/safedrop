@@ -17,7 +17,7 @@ import (
 	"safedrop/internal/storage"
 )
 
-func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger) ([]httpx.RouterOption, observability.QueueStates, func(), error) {
+func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger, metrics *observability.Metrics) ([]httpx.RouterOption, observability.QueueStates, func(), error) {
 	if cfg.DatabaseURL == "" {
 		unavailable := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "DATABASE_URL is required", http.StatusServiceUnavailable)
@@ -67,18 +67,18 @@ func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger) ([
 			return nil, nil, nil, err
 		}
 	}
-	handler := &httpx.UploadHandler{Auth: authenticator, Storage: store,
+	handler := httpx.NewUploadHandler(httpx.UploadHandler{Auth: authenticator, Storage: store,
 		Repository: &httpx.UploadDatabase{Pool: pool, Queue: queue, DailyBytes: cfg.Abuse.DailyBytes}, Limits: cfg.Limits, Logger: logger,
-		Admission: ratelimit.NewUploads(cfg.Abuse.Uploads), Quota: &ratelimit.Quota{Queries: db.New(pool), Bytes: cfg.Abuse.DailyBytes}}
-	shares := &httpx.ShareHandler{Auth: authenticator, Logger: logger,
-		Service: &share.Service{Repository: &share.Postgres{Pool: pool}, Storage: store, Presign: cfg.SharePresign}}
+		Admission: ratelimit.NewUploads(cfg.Abuse.Uploads), Quota: &ratelimit.Quota{Queries: db.New(pool), Bytes: cfg.Abuse.DailyBytes}}, metrics)
+	shares := httpx.NewShareHandler(httpx.ShareHandler{Auth: authenticator, Logger: logger,
+		Service: &share.Service{Repository: &share.Postgres{Pool: pool}, Storage: store, Presign: cfg.SharePresign}}, metrics)
 	accounts := auth.NewAccounts(db.New(pool), authenticator)
 	var registrationCheck auth.RegistrationCheck
 	if cfg.Abuse.TurnstileSecret != "" {
 		registrationCheck = auth.NewTurnstile(cfg.Abuse.TurnstileSecret, cfg.Abuse.TurnstileHostname)
 	}
 	files := &httpx.FilesHandler{Auth: authenticator, Queries: db.New(pool)}
-	return []httpx.RouterOption{httpx.WithRateLimits(ratelimit.NewBuckets(cfg.Abuse.PerSecond, cfg.Abuse.Burst)),
+	return []httpx.RouterOption{httpx.WithRateLimits(ratelimit.NewBuckets(cfg.Abuse.PerSecond, cfg.Abuse.Burst), metrics),
 		httpx.WithUploads(handler), httpx.WithShares(shares),
 		httpx.WithAccounts(accounts, registrationCheck), httpx.WithFiles(files)}, jobs.QueueMetrics(pool), func() { pool.Close(); closeStore() }, nil
 }

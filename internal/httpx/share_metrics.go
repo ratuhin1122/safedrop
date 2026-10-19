@@ -2,11 +2,10 @@ package httpx
 
 import (
 	"errors"
-	"safedrop/internal/observability"
 	"safedrop/internal/share"
 )
 
-func recordShareRequest(err error) {
+func (h *ShareHandler) recordShareRequest(err error) {
 	result := ""
 	switch {
 	case err == nil:
@@ -20,7 +19,7 @@ func recordShareRequest(err error) {
 	case errors.Is(err, share.ErrGone), errors.Is(err, share.ErrNotFound):
 		result = "not_found"
 	}
-	if result != "" {
-		observability.DefaultMetrics.Shares.WithLabelValues(result).Inc()
+	if result != "" && h.Metrics != nil {
+		h.Metrics.Shares.WithLabelValues(result).Inc()
 	}
 }

@@ -86,5 +86,5 @@ func fixture(t *testing.T) (*share.Service, *memoryRepository, string, []byte) {
 func router(service *share.Service, output io.Writer) http.Handler {
 	authenticator, _ := auth.NewStub("11111111-1111-4111-8111-111111111111", strings.Repeat("t", 32))
 	logger := slog.New(slog.NewJSONHandler(output, nil))
-	return httpx.NewRouter(logger, nil, httpx.WithShares(&httpx.ShareHandler{Auth: authenticator, Service: service, Logger: logger}))
+	return httpx.NewRouter(logger, nil, nil, httpx.WithShares(&httpx.ShareHandler{Auth: authenticator, Service: service, Logger: logger}))
 }

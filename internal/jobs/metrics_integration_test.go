@@ -35,10 +35,7 @@ func TestProcessingOutcomeMetrics(t *testing.T) {
 	for _, result := range []string{"ready", "rejected_virus", "rejected_error", "retried"} {
 		t.Run(result, func(t *testing.T) {
 			ctx, pool, file, logger, _ := workerFixture(t)
-			old := observability.DefaultMetrics
 			m := observability.NewMetrics()
-			observability.DefaultMetrics = m
-			defer func() { observability.DefaultMetrics = old }()
 			var processor Processor = processorFunc(readyProcessor)
 			attempt := 1
 			if result == "rejected_error" || result == "retried" {
@@ -51,7 +48,7 @@ func TestProcessingOutcomeMetrics(t *testing.T) {
 				processor = &ScanProcessor{Storage: &scanStore{data: []byte("test"), failDeletes: 1}, Logger: logger,
 					Scanner: scannerFunc(func(context.Context, io.Reader) (scan.Result, error) { return scan.Result{Verdict: scan.Infected}, nil })}
 			}
-			worker := &ProcessFile{Pool: pool, Logger: logger, Processor: processor}
+			worker := NewProcessFile(pool, processor, logger, 0, m)
 			_ = worker.Work(ctx, testJob(file, attempt, 2))
 			if got := processedCount(t, m, result); got != 1 {
 				t.Fatalf("%s = %g", result, got)

@@ -30,6 +30,7 @@ func run() error {
 	}
 	logger := observability.NewLogger(os.Stdout, cfg.LogLevel).With("service", "safedrop-worker")
 	slog.SetDefault(logger)
+	metrics := observability.NewMetrics()
 	closeTracing, err := observability.SetupTracing("safedrop-worker", logger)
 	if err != nil {
 		return err
@@ -42,7 +43,7 @@ func run() error {
 		return err
 	}
 	defer pool.Close()
-	closeMetrics, err := observability.StartMetrics(os.Getenv("METRICS_ADDR"), jobs.QueueMetrics(pool), logger)
+	closeMetrics, err := observability.StartMetrics(os.Getenv("METRICS_ADDR"), jobs.QueueMetrics(pool), logger, metrics)
 	if err != nil {
 		return err
 	}
@@ -54,13 +55,14 @@ func run() error {
 	defer closeStorage()
 	client, err := jobs.NewWorkerClient(pool, logger, jobs.WorkerOptions{
 		Concurrency: cfg.Concurrency, JobTimeout: cfg.JobTimeout,
+		Metrics:      metrics,
 		ShareCleaner: &share.Cleaner{Pool: pool, Storage: processor.Storage},
 	}, processor)
 	if err != nil {
 		return err
 	}
 	startup, cancelStartup := context.WithTimeout(signals, cfg.ShutdownTimeout)
-	_, err = jobs.ReconcileExhausted(startup, pool)
+	_, err = jobs.ReconcileExhausted(startup, pool, metrics)
 	cancelStartup()
 	if err != nil {
 		return err
@@ -72,7 +74,7 @@ func run() error {
 	}
 	maintenance, cancelMaintenance := context.WithCancel(context.Background())
 	done := make(chan struct{})
-	go func() { defer close(done); jobs.RunReconciler(maintenance, pool, logger, processor) }()
+	go func() { defer close(done); jobs.RunReconciler(maintenance, pool, logger, metrics, processor) }()
 	defer func() { cancelMaintenance(); <-done }()
 	logger.Info("worker started", "concurrency", cfg.Concurrency)
 	select {

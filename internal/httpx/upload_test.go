@@ -37,7 +37,7 @@ func TestUploadCreated(t *testing.T) {
 		return db.File{ID: fileID, Status: "uploaded"}, nil
 	})
 	w := httptest.NewRecorder()
-	NewRouter(h.Logger, nil, WithUploads(h)).ServeHTTP(w, uploadRequest(data))
+	NewRouter(h.Logger, nil, nil, WithUploads(h)).ServeHTTP(w, uploadRequest(data))
 	var response struct {
 		ID string `json:"id"`
 	}

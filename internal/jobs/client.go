@@ -3,6 +3,7 @@ package jobs
 import (
 	"errors"
 	"log/slog"
+	"safedrop/internal/observability"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -17,6 +18,7 @@ type WorkerOptions struct {
 	// Empty selects River's default queue. A separate queue can isolate consumers.
 	Queue        string
 	ShareCleaner ShareCleaner
+	Metrics      *observability.Metrics
 }
 
 func NewWorkerClient(pool *pgxpool.Pool, logger *slog.Logger, options WorkerOptions, processor Processor) (*river.Client[pgx.Tx], error) {
@@ -24,7 +26,7 @@ func NewWorkerClient(pool *pgxpool.Pool, logger *slog.Logger, options WorkerOpti
 		return nil, errors.New("pool, logger, 1-64 workers, and a positive job timeout are required")
 	}
 	workers := river.NewWorkers()
-	river.AddWorker(workers, &ProcessFile{Pool: pool, Processor: processor, Logger: logger, JobTimeout: options.JobTimeout})
+	river.AddWorker(workers, NewProcessFile(pool, processor, logger, options.JobTimeout, options.Metrics))
 	queue := options.Queue
 	if queue == "" {
 		queue = river.QueueDefault

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"safedrop/internal/auth"
+	"safedrop/internal/observability"
 	"safedrop/internal/share"
 
 	"github.com/go-chi/chi/v5"
@@ -19,6 +20,12 @@ type ShareHandler struct {
 	Auth    auth.Authenticator
 	Service *share.Service
 	Logger  *slog.Logger
+	Metrics *observability.Metrics
+}
+
+func NewShareHandler(options ShareHandler, metrics *observability.Metrics) *ShareHandler {
+	options.Metrics = metrics
+	return &options
 }
 
 func WithShares(handler *ShareHandler) RouterOption {

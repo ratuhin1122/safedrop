@@ -18,10 +18,10 @@ func WithUploads(handler http.Handler) RouterOption {
 	return func(r chi.Router) { r.Method(http.MethodPost, "/v1/files", handler) }
 }
 
-func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix, options ...RouterOption) http.Handler {
+func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix, metrics *observability.Metrics, options ...RouterOption) http.Handler {
 	r := chi.NewRouter()
 	r.Use(TrustedProxy(trustedProxies))
-	r.Use(observability.DefaultMetrics.HTTPMiddleware)
+	r.Use(metrics.HTTPMiddleware)
 	r.Use(requestTelemetry)
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

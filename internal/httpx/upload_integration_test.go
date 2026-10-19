@@ -16,7 +16,7 @@ import (
 
 func TestUploadHTTPCommitsFileAndRiverJob(t *testing.T) {
 	h, store, pool, user := integrationUpload(t)
-	server := httptest.NewServer(NewRouter(h.Logger, nil, WithUploads(h)))
+	server := httptest.NewServer(NewRouter(h.Logger, nil, nil, WithUploads(h)))
 	defer server.Close()
 	data := uploadPNG(t)
 	r := uploadRequest(data)

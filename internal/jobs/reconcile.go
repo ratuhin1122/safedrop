@@ -17,7 +17,7 @@ const exhaustedFiles = `deleted_at IS NULL AND EXISTS (
 
 // ReconcileExhausted repairs final failures caused by timeouts, panics, process
 // crashes, or database outages that prevented Work from recording rejection.
-func ReconcileExhausted(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+func ReconcileExhausted(ctx context.Context, pool *pgxpool.Pool, metrics ...*observability.Metrics) (int64, error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return 0, err
@@ -37,7 +37,9 @@ func ReconcileExhausted(ctx context.Context, pool *pgxpool.Pool) (int64, error) 
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
-	observability.DefaultMetrics.Processed.WithLabelValues("rejected_error").Add(float64(result.RowsAffected()))
+	if len(metrics) > 0 && metrics[0] != nil {
+		metrics[0].Processed.WithLabelValues("rejected_error").Add(float64(result.RowsAffected()))
+	}
 	return result.RowsAffected(), nil
 }
 
@@ -45,7 +47,7 @@ type Maintainer interface {
 	Maintain(context.Context, *pgxpool.Pool) error
 }
 
-func RunReconciler(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger, maintainers ...Maintainer) {
+func RunReconciler(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger, metrics *observability.Metrics, maintainers ...Maintainer) {
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -54,7 +56,7 @@ func RunReconciler(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger,
 			return
 		case <-ticker.C:
 			attempt, cancel := context.WithTimeout(ctx, 10*time.Second)
-			count, err := ReconcileExhausted(attempt, pool)
+			count, err := ReconcileExhausted(attempt, pool, metrics)
 			cancel()
 			if err != nil && ctx.Err() == nil {
 				logger.ErrorContext(ctx, "exhausted job reconciliation failed", "error", err)

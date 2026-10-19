@@ -48,7 +48,7 @@ func TestTwentyFirstUploadReturns429(t *testing.T) {
 
 func TestGeneralRateLimit(t *testing.T) {
 	h, _ := testUploadHandler(t)
-	router := NewRouter(h.Logger, nil, WithRateLimits(ratelimit.NewBuckets(1, 1)))
+	router := NewRouter(h.Logger, nil, nil, WithRateLimits(ratelimit.NewBuckets(1, 1), nil))
 	for i, want := range []int{404, 429} {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, httptest.NewRequest("GET", "/missing", nil))

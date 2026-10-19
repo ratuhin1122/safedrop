@@ -10,7 +10,10 @@ import (
 	"time"
 )
 
-func StartMetrics(address string, depth QueueStates, logger *slog.Logger) (func(), error) {
+func StartMetrics(address string, depth QueueStates, logger *slog.Logger, metrics *Metrics) (func(), error) {
+	if metrics == nil {
+		return nil, errors.New("metrics instance is required")
+	}
 	if address == "" {
 		address = ":9090"
 	}
@@ -18,13 +21,13 @@ func StartMetrics(address string, depth QueueStates, logger *slog.Logger) (func(
 	if err != nil {
 		return nil, err
 	}
-	return serveMetrics(listener, depth, logger), nil
+	return serveMetrics(listener, depth, logger, metrics), nil
 }
 
-func serveMetrics(listener net.Listener, depth QueueStates, logger *slog.Logger) func() {
+func serveMetrics(listener net.Listener, depth QueueStates, logger *slog.Logger, metrics *Metrics) func() {
 	mux := chi.NewRouter()
-	mux.Use(DefaultMetrics.HTTPMiddleware)
-	mux.Get("/metrics", DefaultMetrics.Handler(depth).ServeHTTP)
+	mux.Use(metrics.HTTPMiddleware)
+	mux.Get("/metrics", metrics.Handler(depth).ServeHTTP)
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second}
 	go func() {
 		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {

@@ -9,7 +9,7 @@ import (
 )
 
 func TestHealth(t *testing.T) {
-	router := NewRouter(slog.New(slog.NewJSONHandler(io.Discard, nil)), nil)
+	router := NewRouter(slog.New(slog.NewJSONHandler(io.Discard, nil)), nil, nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 	if w.Code != http.StatusOK || w.Body.String() != "{\"status\":\"ok\"}\n" || w.Header().Get("Content-Type") != "application/json" {

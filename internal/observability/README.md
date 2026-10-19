@@ -12,6 +12,9 @@ Both binaries serve GET `/metrics` on a separate listener configured by
 registry. The public API listener does not serve `/metrics`. Go runtime and
 process collectors are registered; process metrics depend on OS support.
 Both metrics listeners drain requests during shutdown, with a five-second limit.
+Each binary constructs one Metrics instance and injects it into its server,
+handlers, limiter middleware, and worker constructors. No global registry is used.
+Stage observers use the registry carried by their ProcessFile attempt context.
 When running both binaries on one host, set a different METRICS_ADDR for one.
 Compose publishes API metrics at localhost:9090 and worker metrics at
 localhost:9091; API_METRICS_PORT and WORKER_METRICS_PORT change host ports.
@@ -44,6 +47,11 @@ as rejected_error. Scan/convert timings measure those stages; total includes the
 whole worker attempt, even replays. Share `ok` counts authorization, including
 presigned redirects, before streaming completes. Missing/deleted links or objects
 count as not_found; an already-removed expired link cannot be distinguished.
+
+Accepted means committed before scanning: a good image plus an EICAR-bearing
+image yields accepted=2, ready=1, rejected_virus=1. Raw EICAR text fails image
+type validation and never reaches the worker. API uploads and worker outcomes
+are scraped from their respective processes and combined in Prometheus.
 
 Queue gauges query PostgreSQL on each scrape. API and worker expose the same
 counts, so aggregate with `max`, not `sum`, across replicas. Queries have a

@@ -16,8 +16,6 @@ type Metrics struct {
 	QueueJobs                              *prometheus.GaugeVec
 }
 
-var DefaultMetrics = NewMetrics()
-
 func NewMetrics() *Metrics {
 	counter := func(name, help string, labels ...string) *prometheus.CounterVec {
 		return prometheus.NewCounterVec(prometheus.CounterOpts{Name: name, Help: help}, labels)
@@ -57,11 +55,17 @@ func NewMetrics() *Metrics {
 }
 
 func (m *Metrics) ObserveProcessing(stage string, elapsed time.Duration) {
+	if m == nil {
+		return
+	}
 	m.Processing.WithLabelValues(stage).Observe(elapsed.Seconds())
 }
 
 // ObserveUpload charges bytes only for accepted uploads, using the actual size.
 func (m *Metrics) ObserveUpload(result string, bytes int64) {
+	if m == nil {
+		return
+	}
 	switch result {
 	case "accepted", "rejected_size", "rejected_type", "rejected_pixels", "rate_limited", "quota_exceeded":
 		m.Uploads.WithLabelValues(result).Inc()
@@ -74,6 +78,9 @@ func (m *Metrics) ObserveUpload(result string, bytes int64) {
 }
 
 func (m *Metrics) ObserveProcessed(result string) {
+	if m == nil {
+		return
+	}
 	switch result {
 	case "ready", "rejected_virus", "rejected_error", "retried":
 		m.Processed.WithLabelValues(result).Inc()

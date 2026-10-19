@@ -28,7 +28,7 @@ func TestAccountsAndFileOwnership(t *testing.T) {
 	q := db.New(pool)
 	tokens, _ := auth.NewTokens(strings.Repeat("k", 32))
 	accounts := auth.NewAccounts(q, tokens)
-	router := NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), nil,
+	router := NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil,
 		WithAccounts(accounts), WithFiles(&FilesHandler{Auth: tokens, Queries: q}))
 	request := func(method, path, token, body string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(method, path, strings.NewReader(body))

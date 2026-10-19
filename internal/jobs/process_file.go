@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"safedrop/internal/db"
+	"safedrop/internal/observability"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -21,6 +22,11 @@ type ProcessFile struct {
 	Processor  Processor
 	Logger     *slog.Logger
 	JobTimeout time.Duration
+	Metrics    *observability.Metrics
+}
+
+func NewProcessFile(pool *pgxpool.Pool, processor Processor, logger *slog.Logger, timeout time.Duration, metrics *observability.Metrics) *ProcessFile {
+	return &ProcessFile{Pool: pool, Processor: processor, Logger: logger, JobTimeout: timeout, Metrics: metrics}
 }
 
 func (w *ProcessFile) Timeout(*river.Job[ProcessFileArgs]) time.Duration { return w.JobTimeout }
@@ -54,6 +60,9 @@ func (w *ProcessFile) work(ctx context.Context, job *river.Job[ProcessFileArgs])
 		return err
 	}
 	if file.Status == "ready" || file.Status == "rejected" {
+		if report, _ := ctx.Value(reportKey{}).(*processReport); report != nil {
+			report.result = file.Status
+		}
 		w.Logger.InfoContext(ctx, "process_file skipped", "file_id", job.Args.FileID, "status", file.Status)
 		_ = tx.Rollback(ctx)
 		if file.Status == "ready" {

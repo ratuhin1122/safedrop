@@ -9,7 +9,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"safedrop/internal/db"
-	"safedrop/internal/observability"
 	"safedrop/internal/scan"
 	"safedrop/internal/storage"
 )
@@ -38,7 +37,7 @@ func (p *ScanProcessor) Process(ctx context.Context, queries *db.Queries, file d
 		}
 		started := time.Now()
 		result, scanErr := p.Scanner.Scan(ctx, body)
-		observability.DefaultMetrics.ObserveProcessing("scan", time.Since(started))
+		observeStage(ctx, "scan", time.Since(started))
 		closeErr := body.Close()
 		if scanErr != nil {
 			return errors.Join(scanErr, closeErr)

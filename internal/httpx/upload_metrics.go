@@ -2,11 +2,10 @@ package httpx
 
 import (
 	"errors"
-	"safedrop/internal/observability"
 	"safedrop/internal/validate"
 )
 
-func recordUploadRejection(err error) {
+func (h *UploadHandler) recordUploadRejection(err error) {
 	result := ""
 	switch {
 	case errors.Is(err, validate.ErrTooLarge), errors.Is(err, validate.ErrTooSmall):
@@ -17,6 +16,6 @@ func recordUploadRejection(err error) {
 		result = "rejected_type"
 	}
 	if result != "" {
-		observability.DefaultMetrics.Uploads.WithLabelValues(result).Inc()
+		h.Metrics.ObserveUpload(result, 0)
 	}
 }

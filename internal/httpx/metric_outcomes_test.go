@@ -41,11 +41,9 @@ func (quotaReader) GetUploadUsage(context.Context, db.GetUploadUsageParams) (db.
 }
 
 func TestUploadOutcomeMetrics(t *testing.T) {
-	old := observability.DefaultMetrics
 	m := observability.NewMetrics()
-	observability.DefaultMetrics = m
-	defer func() { observability.DefaultMetrics = old }()
 	h, _ := testUploadHandler(t)
+	h = NewUploadHandler(*h, m)
 	h.Repository = uploadRepositoryFunc(func(_ context.Context, p db.CreateFileParams) (db.File, error) { return db.File{ID: p.OwnerID}, nil })
 	data := uploadPNG(t)
 	send := func(body []byte, want int) {

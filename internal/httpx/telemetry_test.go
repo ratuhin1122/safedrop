@@ -30,7 +30,7 @@ func TestRequestTelemetry(t *testing.T) {
 	}()
 	var logs bytes.Buffer
 	logger := observability.NewLogger(&logs, slog.LevelInfo).With("service", "test")
-	router := NewRouter(logger, nil, func(r chi.Router) {
+	router := NewRouter(logger, nil, nil, func(r chi.Router) {
 		r.Get("/s/{token}", func(w http.ResponseWriter, r *http.Request) {
 			logger.InfoContext(r.Context(), "handler ran")
 			if observability.RequestID(r.Context()) == "" {
@@ -62,7 +62,7 @@ func TestRequestTelemetry(t *testing.T) {
 
 func TestPublicAPIDoesNotServeMetrics(t *testing.T) {
 	h, _ := testUploadHandler(t)
-	router := NewRouter(h.Logger, nil)
+	router := NewRouter(h.Logger, nil, nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
 	if w.Code != 404 || strings.Contains(w.Body.String(), "safedrop_queue_jobs") {

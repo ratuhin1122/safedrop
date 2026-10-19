@@ -25,6 +25,12 @@ type UploadHandler struct {
 	Logger     *slog.Logger
 	Admission  ratelimit.UploadLimiter
 	Quota      *ratelimit.Quota
+	Metrics    *observability.Metrics
+}
+
+func NewUploadHandler(options UploadHandler, metrics *observability.Metrics) *UploadHandler {
+	options.Metrics = metrics
+	return &options
 }
 
 func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +42,7 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	name, status, err := checkUpload(r, h.Limits)
 	if err != nil {
-		recordUploadRejection(err)
+		h.recordUploadRejection(err)
 		http.Error(w, err.Error(), status)
 		return
 	}
@@ -81,8 +87,7 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	keep = true
-	observability.DefaultMetrics.Uploads.WithLabelValues("accepted").Inc()
-	observability.DefaultMetrics.UploadBytes.Add(float64(file.Size))
+	h.Metrics.ObserveUpload("accepted", file.Size)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(struct {
@@ -99,10 +104,10 @@ func (h *UploadHandler) cleanupUpload(ctx context.Context, key string) {
 }
 
 func (h *UploadHandler) uploadError(w http.ResponseWriter, r *http.Request, err error) {
-	if limited(w, err) {
+	if h.limited(w, err) {
 		return
 	}
-	recordUploadRejection(err)
+	h.recordUploadRejection(err)
 	status, message := http.StatusInternalServerError, "upload failed"
 	switch {
 	case errors.Is(err, validate.ErrTooLarge):

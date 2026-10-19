@@ -11,6 +11,9 @@ import (
 
 // HTTPMiddleware reads the final chi pattern after routing, never the raw path.
 func (m *Metrics) HTTPMiddleware(next http.Handler) http.Handler {
+	if m == nil {
+		return next
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		started := time.Now()
 		response := middleware.NewWrapResponseWriter(w, r.ProtoMajor)

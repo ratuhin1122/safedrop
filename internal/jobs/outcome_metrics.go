@@ -2,7 +2,7 @@ package jobs
 
 import (
 	"context"
-	"safedrop/internal/observability"
+	"time"
 )
 
 func recordProcessed(ctx context.Context, status string) {
@@ -19,8 +19,12 @@ func recordProcessed(ctx context.Context, status string) {
 			result = "rejected_virus"
 		}
 		report.result = result
+		report.metrics.ObserveProcessed(result)
 	}
-	if result != "" {
-		observability.DefaultMetrics.Processed.WithLabelValues(result).Inc()
+}
+
+func observeStage(ctx context.Context, stage string, elapsed time.Duration) {
+	if report, _ := ctx.Value(reportKey{}).(*processReport); report != nil {
+		report.metrics.ObserveProcessing(stage, elapsed)
 	}
 }

@@ -14,7 +14,7 @@ func (h *ShareHandler) Download(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	_, password, _ := r.BasicAuth()
 	download, err := h.Service.Open(r.Context(), chi.URLParam(r, "token"), password)
-	recordShareRequest(err)
+	h.recordShareRequest(err)
 	if err != nil {
 		h.shareError(w, r, err)
 		return

@@ -10,13 +10,15 @@ import (
 	"safedrop/internal/ratelimit"
 )
 
-func WithRateLimits(buckets *ratelimit.Buckets) RouterOption {
+func WithRateLimits(buckets *ratelimit.Buckets, metrics *observability.Metrics) RouterOption {
 	return func(r chi.Router) {
 		r.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path != "/healthz" && !(r.Method == http.MethodPost && r.URL.Path == "/v1/files") {
 					if retry := buckets.Allow(ratelimit.IP(r)); retry > 0 {
-						observability.DefaultMetrics.RateLimits.WithLabelValues("api_bucket").Inc()
+						if metrics != nil {
+							metrics.RateLimits.WithLabelValues("api_bucket").Inc()
+						}
 						ratelimit.Respond(w, retry)
 						return
 					}
@@ -46,7 +48,7 @@ func (h *UploadHandler) admit(w http.ResponseWriter, r *http.Request, owner pgty
 	return release, true
 }
 
-func limited(w http.ResponseWriter, err error) bool {
+func (h *UploadHandler) limited(w http.ResponseWriter, err error) bool {
 	var rejection *ratelimit.Rejection
 	if !errors.As(err, &rejection) {
 		return false
@@ -59,9 +61,11 @@ func limited(w http.ResponseWriter, err error) bool {
 		if rejection.Kind == "concurrency" {
 			kind = "concurrency"
 		}
-		observability.DefaultMetrics.RateLimits.WithLabelValues(kind).Inc()
+		if h.Metrics != nil {
+			h.Metrics.RateLimits.WithLabelValues(kind).Inc()
+		}
 	}
-	observability.DefaultMetrics.Uploads.WithLabelValues(result).Inc()
+	h.Metrics.ObserveUpload(result, 0)
 	ratelimit.Respond(w, rejection.RetryAfter)
 	return true
 }

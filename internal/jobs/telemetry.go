@@ -36,8 +36,9 @@ func QueueMetrics(pool *pgxpool.Pool) observability.QueueStates {
 }
 
 type processReport struct {
-	virus  bool
-	result string
+	virus   bool
+	result  string
+	metrics *observability.Metrics
 }
 type reportKey struct{}
 
@@ -48,14 +49,14 @@ func (w *ProcessFile) Work(ctx context.Context, job *river.Job[ProcessFileArgs])
 		span.SetAttributes(attribute.Int64("job.id", job.ID), attribute.Int("job.attempt", job.Attempt))
 	}
 	started := time.Now()
-	report := &processReport{}
+	report := &processReport{metrics: w.Metrics}
 	ctx = context.WithValue(ctx, reportKey{}, report)
 	defer func() {
-		observability.DefaultMetrics.ObserveProcessing("total", time.Since(started))
+		w.Metrics.ObserveProcessing("total", time.Since(started))
 		var canceled *river.JobCancelError
 		var snoozed *river.JobSnoozeError
 		if err != nil && !errors.As(err, &canceled) && !errors.As(err, &snoozed) && report.result == "" && job.JobRow != nil && job.Attempt < job.MaxAttempts {
-			observability.DefaultMetrics.Processed.WithLabelValues("retried").Inc()
+			w.Metrics.ObserveProcessed("retried")
 		}
 		if err != nil {
 			span.SetStatus(codes.Error, "processing attempt failed")
