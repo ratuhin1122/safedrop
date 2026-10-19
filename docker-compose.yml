@@ -103,6 +103,8 @@ services:
     environment:
       <<: *app-env
       GOMEMLIMIT: ${WORKER_GO_MEMORY_LIMIT:-384MiB}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      WORKER_JOB_TIMEOUT: ${WORKER_JOB_TIMEOUT:-1m}
     healthcheck:
       # Process liveness only until the worker exposes a readiness probe.
       test: [CMD-SHELL, 'kill -0 1']

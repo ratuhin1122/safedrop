@@ -23,7 +23,8 @@ the body. Actual streamed bytes are validated independently of Content-Length.
 Validation spools to a private temporary file, then streams that file to storage.
 Only after storage succeeds does a short PostgreSQL transaction insert the file
 row and call River `InsertTx` with a `process_file` job containing `file_id`.
-This step enqueues jobs; worker execution is implemented separately.
+The River consumer runs with `make worker`; its processor interface is defined
+in internal/jobs. Scanning and image processing are supplied in later steps.
 
 Validation errors return 400 (image, dimensions, minimum size), 413 (maximum
 size), or 415 (type). Authentication failures return 401. Operational failures

@@ -1,4 +1,4 @@
-.PHONY: run test lint migrate migrate-river
+.PHONY: run worker test lint migrate migrate-river
 
 GO ?= go
 GOOSE ?= goose
@@ -7,6 +7,9 @@ MIGRATE_COMMAND ?= up
 # Export DATABASE_URL in your shell; .env.example is a configuration reference.
 run:
 	$(GO) run ./cmd/api
+
+worker:
+	$(GO) run ./cmd/worker
 
 test:
 	$(GO) test ./...

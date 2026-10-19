@@ -10,11 +10,20 @@ import (
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 )
 
-type FileArgs struct {
+const ProcessFileMaxAttempts = 5
+
+type ProcessFileArgs struct {
 	FileID string `json:"file_id"`
 }
 
-func (FileArgs) Kind() string { return "process_file" }
+func (ProcessFileArgs) Kind() string { return "process_file" }
+
+func (ProcessFileArgs) InsertOpts() river.InsertOpts {
+	return river.InsertOpts{MaxAttempts: ProcessFileMaxAttempts, Queue: river.QueueDefault}
+}
+
+// FileArgs preserves the upload producer's existing argument type and wire format.
+type FileArgs = ProcessFileArgs
 
 // Queue is an insert-only River client. Worker execution is configured separately.
 type Queue struct{ client *river.Client[pgx.Tx] }

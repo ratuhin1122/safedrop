@@ -1,0 +1,35 @@
+package jobs
+
+import (
+	"errors"
+	"log/slog"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+)
+
+type WorkerOptions struct {
+	Concurrency int
+	JobTimeout  time.Duration
+	// Empty selects River's default queue. A separate queue can isolate consumers.
+	Queue string
+}
+
+func NewWorkerClient(pool *pgxpool.Pool, logger *slog.Logger, options WorkerOptions, processor Processor) (*river.Client[pgx.Tx], error) {
+	if pool == nil || logger == nil || options.Concurrency < 1 || options.Concurrency > 64 || options.JobTimeout <= 0 {
+		return nil, errors.New("pool, logger, 1-64 workers, and a positive job timeout are required")
+	}
+	workers := river.NewWorkers()
+	river.AddWorker(workers, &ProcessFile{Pool: pool, Processor: processor, Logger: logger, JobTimeout: options.JobTimeout})
+	queue := options.Queue
+	if queue == "" {
+		queue = river.QueueDefault
+	}
+	return river.NewClient(riverpgxv5.New(pool), &river.Config{
+		Logger: logger, Workers: workers, MaxAttempts: ProcessFileMaxAttempts,
+		Queues: map[string]river.QueueConfig{queue: {MaxWorkers: options.Concurrency}},
+	})
+}

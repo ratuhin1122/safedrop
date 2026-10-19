@@ -2,7 +2,8 @@
 
 A Go service for streamed uploads, background scanning and processing, and
 sharing files through expiring links. Authenticated image upload and transactional
-job enqueueing are implemented; background processing and sharing come later.
+job enqueueing and consumption are implemented; the scan/processing pipeline and
+sharing come later.
 
 ## Stack
 
@@ -12,7 +13,7 @@ and slog.
 
 ## Layout
 
-- `cmd/api`, `cmd/worker`: service entry points; worker implementation comes later.
+- `cmd/api`, `cmd/worker`: API and River consumer entry points.
 - `cmd/migrate`: River schema migrations, after application goose migrations.
 - `internal/config`, `internal/db`, `internal/storage`: configuration and data.
 - `internal/validate`, `internal/scan`, `internal/imageproc`: file checks and processing.
@@ -29,11 +30,13 @@ needed values in your shell; the scaffold does not load `.env` automatically.
 - `make test`: run Go tests.
 - `make lint`: run standard Go vet checks.
 - `make run`: start the API.
+- `make worker`: start the River consumer after migrations.
 - `make migrate`: apply goose and River migrations using `DATABASE_URL`.
   Use `make migrate MIGRATE_COMMAND=status` to inspect migration status.
 
 See [upload setup and protocol](internal/httpx/UPLOADS.md) for the development
 auth stub, raw-body POST /v1/files, and PostgreSQL integration tests.
+See [worker setup](internal/jobs/README.md) for retries and the processor interface.
 
 ## File lifecycle
 
