@@ -4,7 +4,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libvips-dev pkg-config \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
-COPY go.mod ./
+COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 ENV CGO_ENABLED=1
