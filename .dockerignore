@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+!.env.example
+bin
+dist
+coverage
+data
+tmp
+*.log
+*.exe
+*.test
+*.out
