@@ -21,9 +21,9 @@ Each binary constructs one Metrics instance and injects it into its server,
 handlers, limiter middleware, and worker constructors. No global registry is used.
 Stage observers use the registry carried by their ProcessFile attempt context.
 When running both binaries on one host, set a different METRICS_ADDR for one.
-Compose publishes API metrics at localhost:9090 and worker metrics at
-localhost:9091; API_METRICS_PORT and WORKER_METRICS_PORT change host ports.
-Keep METRICS_ADDR=:9090 in Compose or adjust its container port mappings too.
+Compose keeps API and worker metrics private on port 9090. The optional
+observability profile scrapes both every 15 seconds and publishes Prometheus at
+localhost:9090 and Grafana at localhost:3000. See the root README for startup.
 Scrape each instance separately. Metrics are unauthenticated; use deployment
 network controls to restrict scraping.
 

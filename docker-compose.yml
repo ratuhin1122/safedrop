@@ -1,5 +1,4 @@
 name: safedrop
-
 x-app: &app
   build:
     context: .
@@ -20,7 +19,7 @@ x-app: &app
     MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-26214400}
     RATE_LIMIT_REQUESTS_PER_SECOND: ${RATE_LIMIT_REQUESTS_PER_SECOND:-5}
     RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-10}
-    METRICS_ADDR: ${METRICS_ADDR:-:9090}
+    METRICS_ADDR: :9090
     OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
   volumes:
     - uploads:/data
@@ -33,7 +32,6 @@ x-app: &app
       condition: service_healthy
       required: false
   restart: unless-stopped
-
 services:
   postgres:
     image: postgres:17
@@ -49,7 +47,6 @@ services:
       timeout: 3s
       retries: 10
     restart: unless-stopped
-
   clamd:
     image: clamav/clamav:stable
     volumes:
@@ -61,7 +58,6 @@ services:
       retries: 10
       start_period: 180s
     restart: unless-stopped
-
   # Swappable S3 image; command and healthcheck below follow MinIO's contract.
   # Enable with STORAGE_BACKEND=s3 docker compose --profile s3 up --build.
   # Create the private STORAGE_BUCKET before uploading in S3 mode.
@@ -80,13 +76,11 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
-
   api:
     <<: *app
     command: [/usr/local/bin/api]
     ports:
       - '${API_PORT:-8080}:8080'
-      - '127.0.0.1:${API_METRICS_PORT:-9090}:9090'
     environment:
       <<: *app-env
       HTTP_ADDR: :8080
@@ -98,12 +92,9 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
-
   worker:
     <<: *app
     command: [/usr/local/bin/worker]
-    ports:
-      - '127.0.0.1:${WORKER_METRICS_PORT:-9091}:9090'
     cpus: '${WORKER_CPUS:-1.0}'
     mem_limit: ${WORKER_MEMORY:-512m}
     environment:
@@ -118,16 +109,36 @@ services:
       interval: 15s
       timeout: 3s
       retries: 3
-
+  prometheus:
+    image: prom/prometheus:latest
+    profiles: [observability]
+    command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.path=/prometheus]
+    ports: ['127.0.0.1:9090:9090']
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+  grafana:
+    image: grafana/grafana:latest
+    profiles: [observability]
+    ports: ['127.0.0.1:3000:3000']
+    volumes:
+      - ./deploy/grafana/provisioning/datasources/prometheus.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+    restart: unless-stopped
   jaeger:
     image: cr.jaegertracing.io/jaegertracing/jaeger:2.22.0
     profiles: [tracing]
     ports:
       - '127.0.0.1:16686:16686'
       - '127.0.0.1:4318:4318'
-
 volumes:
   postgres-data:
   clamav-data:
   s3-data:
   uploads:
+  prometheus-data:
+  grafana-data:
