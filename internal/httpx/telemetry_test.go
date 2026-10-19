@@ -60,17 +60,12 @@ func TestRequestTelemetry(t *testing.T) {
 	}
 }
 
-func TestMetricsEndpoint(t *testing.T) {
+func TestPublicAPIDoesNotServeMetrics(t *testing.T) {
 	h, _ := testUploadHandler(t)
-	router := NewRouter(h.Logger, nil, WithMetrics(func(context.Context) (map[string]int64, error) { return map[string]int64{"available": 12}, nil }))
+	router := NewRouter(h.Logger, nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
-	if w.Code != 200 || !strings.Contains(w.Body.String(), `safedrop_queue_jobs{state="available"} 12`) {
+	if w.Code != 404 || strings.Contains(w.Body.String(), "safedrop_queue_jobs") {
 		t.Fatalf("%d %s", w.Code, w.Body)
-	}
-	w = httptest.NewRecorder()
-	NewRouter(h.Logger, nil).ServeHTTP(w, httptest.NewRequest("GET", "/metrics", nil))
-	if w.Code != 200 {
-		t.Fatal(w.Code)
 	}
 }

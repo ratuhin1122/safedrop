@@ -21,6 +21,7 @@ func WithUploads(handler http.Handler) RouterOption {
 func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix, options ...RouterOption) http.Handler {
 	r := chi.NewRouter()
 	r.Use(TrustedProxy(trustedProxies))
+	r.Use(observability.DefaultMetrics.HTTPMiddleware)
 	r.Use(requestTelemetry)
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -58,9 +59,6 @@ func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix, options ...Ro
 	})
 	for _, option := range options {
 		option(r)
-	}
-	if !r.Match(chi.NewRouteContext(), http.MethodGet, "/metrics") {
-		r.Get("/metrics", observability.DefaultMetrics.Handler(nil).ServeHTTP)
 	}
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

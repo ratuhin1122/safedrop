@@ -42,8 +42,8 @@ func TestHTTPMetricRouteCardinality(t *testing.T) {
 	if got := metricValue(t, m, "safedrop_ratelimit_hits_total", "limiter", "api_bucket"); got != 2 {
 		t.Fatal(got)
 	}
-	if got := metricValue(t, m, "http_requests_total", "status", "429"); got != 1 {
-		t.Fatalf("template 429 series = %g", got)
+	if got := metricValue(t, m, "http_requests_total", "status", "429"); got != 2 {
+		t.Fatalf("unmatched 429 series = %g", got)
 	}
 }
 

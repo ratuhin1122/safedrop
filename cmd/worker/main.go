@@ -42,7 +42,7 @@ func run() error {
 		return err
 	}
 	defer pool.Close()
-	closeMetrics, err := observability.StartMetrics(os.Getenv("WORKER_METRICS_ADDR"), jobs.QueueMetrics(pool), logger)
+	closeMetrics, err := observability.StartMetrics(os.Getenv("METRICS_ADDR"), jobs.QueueMetrics(pool), logger)
 	if err != nil {
 		return err
 	}

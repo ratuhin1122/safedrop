@@ -3,6 +3,7 @@ package observability
 import (
 	"context"
 	"errors"
+	"github.com/go-chi/chi/v5"
 	"log/slog"
 	"net"
 	"net/http"
@@ -11,14 +12,19 @@ import (
 
 func StartMetrics(address string, depth QueueStates, logger *slog.Logger) (func(), error) {
 	if address == "" {
-		address = ":9091"
+		address = ":9090"
 	}
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
 	}
-	mux := http.NewServeMux()
-	mux.Handle("GET /metrics", DefaultMetrics.Handler(depth))
+	return serveMetrics(listener, depth, logger), nil
+}
+
+func serveMetrics(listener net.Listener, depth QueueStates, logger *slog.Logger) func() {
+	mux := chi.NewRouter()
+	mux.Use(DefaultMetrics.HTTPMiddleware)
+	mux.Get("/metrics", DefaultMetrics.Handler(depth).ServeHTTP)
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second}
 	go func() {
 		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -31,5 +37,5 @@ func StartMetrics(address string, depth QueueStates, logger *slog.Logger) (func(
 		if err := server.Shutdown(ctx); err != nil {
 			_ = server.Close()
 		}
-	}, nil
+	}
 }

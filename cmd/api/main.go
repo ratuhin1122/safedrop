@@ -37,11 +37,16 @@ func run() error {
 	defer closeTracing()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	routes, closeUploads, err := setupRoutes(ctx, cfg.Upload, logger)
+	routes, queueMetrics, closeUploads, err := setupRoutes(ctx, cfg.Upload, logger)
 	if err != nil {
 		return err
 	}
 	defer closeUploads()
+	closeMetrics, err := observability.StartMetrics(os.Getenv("METRICS_ADDR"), queueMetrics, logger)
+	if err != nil {
+		return err
+	}
+	defer closeMetrics()
 	server := &http.Server{
 		Addr: cfg.HTTPAddr, Handler: httpx.NewRouter(logger, cfg.TrustedProxies, routes...),
 		ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second,

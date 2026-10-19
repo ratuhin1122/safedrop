@@ -11,12 +11,13 @@ import (
 	"safedrop/internal/db"
 	"safedrop/internal/httpx"
 	"safedrop/internal/jobs"
+	"safedrop/internal/observability"
 	"safedrop/internal/ratelimit"
 	"safedrop/internal/share"
 	"safedrop/internal/storage"
 )
 
-func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger) ([]httpx.RouterOption, func(), error) {
+func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger) ([]httpx.RouterOption, observability.QueueStates, func(), error) {
 	if cfg.DatabaseURL == "" {
 		unavailable := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "DATABASE_URL is required", http.StatusServiceUnavailable)
@@ -30,20 +31,20 @@ func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger) ([
 			r.Method("POST", "/v1/files", unavailable)
 			r.Method("POST", "/v1/files/{id}/shares", unavailable)
 			r.Method("GET", "/s/{token}", unavailable)
-		}}, func() {}, nil
+		}}, nil, func() {}, nil
 	}
 	authenticator, err := auth.NewTokens(cfg.JWTSecret)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	pool, err := db.OpenPool(ctx, cfg.DatabaseURL)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	queue, err := jobs.NewQueue(pool, logger)
 	if err != nil {
 		pool.Close()
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	var store storage.Store
 	closeStore := func() {}
@@ -51,7 +52,7 @@ func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger) ([
 		local, err := storage.NewLocal(storage.LocalConfig{Root: cfg.LocalRoot})
 		if err != nil {
 			pool.Close()
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		store = local
 		closeStore = func() {
@@ -63,7 +64,7 @@ func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger) ([
 		store, err = storage.NewS3(cfg.S3)
 		if err != nil {
 			pool.Close()
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 	}
 	handler := &httpx.UploadHandler{Auth: authenticator, Storage: store,
@@ -78,6 +79,6 @@ func setupRoutes(ctx context.Context, cfg config.Upload, logger *slog.Logger) ([
 	}
 	files := &httpx.FilesHandler{Auth: authenticator, Queries: db.New(pool)}
 	return []httpx.RouterOption{httpx.WithRateLimits(ratelimit.NewBuckets(cfg.Abuse.PerSecond, cfg.Abuse.Burst)),
-		httpx.WithMetrics(jobs.QueueMetrics(pool)), httpx.WithUploads(handler), httpx.WithShares(shares),
-		httpx.WithAccounts(accounts, registrationCheck), httpx.WithFiles(files)}, func() { pool.Close(); closeStore() }, nil
+		httpx.WithUploads(handler), httpx.WithShares(shares),
+		httpx.WithAccounts(accounts, registrationCheck), httpx.WithFiles(files)}, jobs.QueueMetrics(pool), func() { pool.Close(); closeStore() }, nil
 }

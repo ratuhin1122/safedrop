@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -25,7 +24,6 @@ func requestTelemetry(next http.Handler) http.Handler {
 		ctx := observability.WithRequestID(r.Context(), id)
 		ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.HeaderCarrier(r.Header))
 		ctx, span := otel.Tracer("safedrop/http").Start(ctx, "HTTP request", trace.WithSpanKind(trace.SpanKindServer))
-		started := time.Now()
 		defer span.End()
 		w.Header().Set("X-Request-ID", id)
 		response := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
@@ -45,9 +43,6 @@ func requestTelemetry(next http.Handler) http.Handler {
 			if status == http.StatusMethodNotAllowed || route == "" {
 				route = "unmatched"
 			}
-			method := metricMethod(r.Method)
-			observability.DefaultMetrics.HTTPRequests.WithLabelValues(method, route, strconv.Itoa(status)).Inc()
-			observability.DefaultMetrics.HTTPDuration.WithLabelValues(method, route).Observe(time.Since(started).Seconds())
 			span.SetName("HTTP " + strconv.Itoa(status))
 			if route != "" {
 				span.SetName(r.Method + " " + route)
@@ -59,16 +54,4 @@ func requestTelemetry(next http.Handler) http.Handler {
 		}()
 		next.ServeHTTP(response, r)
 	})
-}
-
-func WithMetrics(depth observability.QueueStates) RouterOption {
-	return func(r chi.Router) { r.Handle("/metrics", observability.DefaultMetrics.Handler(depth)) }
-}
-
-func metricMethod(method string) string {
-	switch method {
-	case "GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "CONNECT", "TRACE":
-		return method
-	}
-	return "OTHER"
 }

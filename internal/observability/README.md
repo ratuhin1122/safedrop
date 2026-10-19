@@ -7,13 +7,21 @@ IDs are not trusted. Request completion logs include method, redacted path,
 client address, status, and duration. Share tokens, credentials, and query
 strings are excluded from telemetry attributes.
 
-GET `/metrics` on the API uses `prometheus/client_golang` and custom registries.
-Go runtime and process collectors are registered; process metrics depend on OS
-support. The worker exposes
-GET `/metrics` on `WORKER_METRICS_ADDR` (default `:9091`). The worker listener is
-reachable inside the Compose network; no extra host port is published. Scrape
-each worker and API instance separately. Metrics are unauthenticated; use your
-deployment network controls to restrict scraping.
+Both binaries serve GET `/metrics` on a separate listener configured by
+`METRICS_ADDR` (default `:9090`), using `promhttp.HandlerFor` with the custom
+registry. The public API listener does not serve `/metrics`. Go runtime and
+process collectors are registered; process metrics depend on OS support.
+Both metrics listeners drain requests during shutdown, with a five-second limit.
+When running both binaries on one host, set a different METRICS_ADDR for one.
+Compose publishes API metrics at localhost:9090 and worker metrics at
+localhost:9091; API_METRICS_PORT and WORKER_METRICS_PORT change host ports.
+Keep METRICS_ADDR=:9090 in Compose or adjust its container port mappings too.
+Scrape each instance separately. Metrics are unauthenticated; use deployment
+network controls to restrict scraping.
+
+With the API running, `curl localhost:8080/healthz` followed by
+`curl localhost:9090/metrics` shows the health request counter.
+`curl -i localhost:8080/metrics` returns 404.
 
 | Metric | Meaning |
 | --- | --- |
@@ -41,7 +49,7 @@ Queue gauges query PostgreSQL on each scrape. API and worker expose the same
 counts, so aggregate with `max`, not `sum`, across replicas. Queries have a
 two-second timeout; a query error fails the scrape with 500. With no database,
 all queue states are zero. HTTP route labels use chi patterns, with `unmatched`
-for unknown routes and 405 responses, including requests rejected before routing.
+when chi has no final pattern, including requests rejected before routing.
 Unknown HTTP methods use OTHER. Metrics never label user/file IDs, tokens,
 filenames, raw paths, or request IDs. Unauthorized/malformed upload requests and
 infrastructure failures appear in HTTP metrics; they do not invent upload results
