@@ -1,3 +1,4 @@
+import { PublicSharePage } from "@/pages/public-share-page";
 import { SharesPage } from "@/pages/shares-page";
 import { Route, Routes } from "react-router";
 import { Layout } from "@/components/layout";
@@ -9,6 +10,7 @@ import { UploadPage } from "@/pages/upload-page";
 
 export function App() {
   return <Routes>
+    <Route path="s/:token" element={<PublicSharePage />} />
     <Route element={<Layout />}>
       <Route index element={<UploadPage />} />
       <Route element={<ProtectedRoute />}>

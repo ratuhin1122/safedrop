@@ -40,3 +40,13 @@ database to also verify real SQL limits, active-link preservation, variant remov
 and cleanup recovery after storage failure.
 For the full database-backed suite, use go test -p 1 ./... so maintenance tests
 using separate temporary storage roots do not operate on another package's fixtures.
+
+Public landing pages can request GET /s/{token}?info=1 for JSON containing
+name, mime, size, and expires_at. This applies the same password, expiry,
+file-ready, and download-limit checks without reading storage or reserving a
+download. Missing links return 404 in metadata mode; expired or exhausted links
+return 410, and password challenges return 401. The attachment endpoint keeps
+its existing 410 behavior. Both modes send X-Robots-Tag: noindex, nofollow.
+Serve browser HTML navigation to /s/{token} from the frontend; forward JSON
+metadata requests and attachment requests to the API. The Vite dev proxy
+distinguishes these by Accept. No public thumbnail URL is exposed.

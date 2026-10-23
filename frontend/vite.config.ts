@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
   const { API_PROXY_TARGET } = loadEnv(mode, process.cwd(), "");
   const proxy = API_PROXY_TARGET ? Object.fromEntries(["/v1", "/s"].map((path) => [path, {
     target: API_PROXY_TARGET, changeOrigin: true,
+    bypass: (req: { headers: { accept?: string } }) => path === "/s" && req.headers.accept?.includes("text/html") ? "/index.html" : undefined,
   }])) : undefined;
   return {
     plugins: [react(), tailwindcss()],
