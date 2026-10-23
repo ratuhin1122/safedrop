@@ -18,9 +18,9 @@ export function Header() {
       <span className="text-xl font-semibold tracking-tight">SafeDrop<span className="text-primary">.</span></span>
     </Link>
     <nav aria-label="Main navigation" className="order-3 flex w-full justify-center gap-1 sm:order-none sm:w-auto">
-      {[{ to: "/", label: "Upload" }, { to: "/files", label: "My files" }].map(({ to, label }) =>
+      {[{ to: "/", label: "Upload" }, { to: "/files", label: "My files" }, { to: "/shares", label: "Shared links" }].map(({ to, label }) =>
         <NavLink key={to} to={to} end className={({ isActive }) => cn(
-          "inline-flex min-h-11 items-center rounded-full px-5 text-sm font-medium transition-colors",
+          "inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium transition-colors",
           isActive ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )}>{label}</NavLink>,
       )}

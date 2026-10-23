@@ -1,3 +1,4 @@
+import { rememberShare } from "@/hooks/use-share-history";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,7 +27,9 @@ export function ShareForm({ fileId }: { fileId: string }) {
     try {
       const response = await createShare(fileId, shareInput(parsed.data), abort.current.signal);
       if (abort.current.signal.aborted) return;
-      setResult({ ...response, url: publicShareUrl(response.url) });
+      const created = { ...response, url: publicShareUrl(response.url) };
+      setResult(created);
+      void rememberShare(client, fileId, created).catch(() => {});
       void client.invalidateQueries({ queryKey: ["shares", fileId] });
     } catch (error) {
       if (!abort.current.signal.aborted) setError("root", { message: error instanceof Error ? error.message : "Could not create a share link." });

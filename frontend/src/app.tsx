@@ -1,3 +1,4 @@
+import { SharesPage } from "@/pages/shares-page";
 import { Route, Routes } from "react-router";
 import { Layout } from "@/components/layout";
 import { FilesPage } from "@/pages/files-page";
@@ -12,6 +13,7 @@ export function App() {
       <Route index element={<UploadPage />} />
       <Route element={<ProtectedRoute />}>
         <Route path="files" element={<FilesPage />} />
+        <Route path="shares" element={<SharesPage />} />
       </Route>
       <Route path="login" element={<AuthPage key="login" />} />
       <Route path="register" element={<AuthPage key="register" creating />} />

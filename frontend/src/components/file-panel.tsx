@@ -10,6 +10,7 @@ import { useDeleteFile } from "@/hooks/use-delete-file";
 import { formatBytes } from "@/lib/upload";
 
 export function FilePanel({ file, onClose }: { file: FileItem; onClose: () => void }) {
+  const [tab, setTab] = useState<"details" | "shares">("details");
   const [sharing, setSharing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -35,6 +36,18 @@ export function FilePanel({ file, onClose }: { file: FileItem; onClose: () => vo
       <h2 className="break-all text-xl font-semibold">{file.original_name}</h2>
       <Button variant="ghost" onClick={onClose} aria-label="Close file details">Close</Button>
     </div>
+    {file.status !== "rejected" && <div role="tablist" aria-label="File information" className="mb-5 flex gap-2">
+      {(["details", "shares"] as const).map((value) => <Button key={value} role="tab" id={"file-tab-" + value}
+        aria-controls={"file-content-" + value} aria-selected={tab === value} tabIndex={tab === value ? 0 : -1}
+        variant="outline" onClick={() => setTab(value)} onKeyDown={(event) => {
+          if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+            event.preventDefault();
+            const next = event.key === "Home" ? "details" : event.key === "End" ? "shares" : tab === "details" ? "shares" : "details";
+            setTab(next); document.getElementById("file-tab-" + next)?.focus();
+          }
+        }}>{value === "details" ? "Details" : "Shared links"}</Button>)}
+    </div>}
+    {(tab === "details" || file.status === "rejected") && <div role={file.status === "rejected" ? undefined : "tabpanel"} id="file-content-details" aria-labelledby={file.status === "rejected" ? undefined : "file-tab-details"}>
     {file.status === "ready" && <FilePreview file={file} />}
     <p className="my-4 text-sm capitalize">Status: {file.status}</p>
     {file.status === "rejected" ? <p role="alert" className="text-sm text-destructive">{file.reject_reason || "This file was rejected."}</p>
@@ -51,7 +64,8 @@ export function FilePanel({ file, onClose }: { file: FileItem; onClose: () => vo
       {file.status === "ready" && <Button onClick={() => setSharing(true)}>Share</Button>}
       <Button variant="outline" className="text-destructive" onClick={() => setConfirm(true)}>Delete file</Button>
     </div>
-    {file.status !== "rejected" && <FileShares fileId={file.id} />}
+    </div>}
+    {tab === "shares" && file.status !== "rejected" && <div role="tabpanel" id="file-content-shares" aria-labelledby="file-tab-shares"><FileShares fileId={file.id} /></div>}
     {sharing && <ShareDialog fileId={file.id} onClose={() => setSharing(false)} />}
     {confirm && <Modal label="Confirm deletion" onClose={() => setConfirm(false)}>
       <h2 className="text-xl font-semibold">Delete this file?</h2>

@@ -27,7 +27,9 @@ it("shows metadata, three authenticated preview sources, shares, and a confirmat
   const view = setup();
   expect(screen.getByText("image/webp")).toBeVisible();
   expect(await screen.findByAltText("image.jpg")).toHaveAttribute("srcset", "blob:preview 375w, blob:preview 768w, blob:preview 1200w");
+  fireEvent.click(screen.getByRole("tab", { name: "Shared links" }));
   expect(await screen.findByText("No share links yet.")).toBeVisible();
+  fireEvent.click(screen.getByRole("tab", { name: "Details" }));
   expect(screen.getByRole("button", { name: "Download" })).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Delete file" }));
   expect(within(screen.getByRole("dialog", { name: "Confirm deletion" })).getByRole("button", { name: "Keep file" })).toBeVisible();
