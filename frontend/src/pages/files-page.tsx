@@ -1,3 +1,5 @@
+import type { FileItem } from "@/api/schemas";
+import { FilePanel } from "@/components/file-panel";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useFiles } from "@/hooks/use-files";
@@ -7,6 +9,7 @@ import { Input } from "@/components/ui/input";
 
 export function FilesPage() {
   const query = useFiles();
+  const [selected, setSelected] = useState<FileItem | null>(null);
   const [view, setView] = useState<"grid" | "list">("grid");
   const [search, setSearch] = useState("");
   const sentinel = useRef<HTMLDivElement>(null);
@@ -24,7 +27,7 @@ export function FilesPage() {
   const visible = items.filter((file) => file.original_name.toLocaleLowerCase().includes(search.toLocaleLowerCase().trim()));
   return <section className="mx-auto max-w-5xl" aria-labelledby="files-title">
     <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-      <div><h1 id="files-title" className="text-3xl font-semibold tracking-tight">My files</h1>
+      <div><h1 id="files-title" tabIndex={-1} className="text-3xl font-semibold tracking-tight">My files</h1>
         <p className="mt-2 text-sm text-muted-foreground">A quiet home for the things you share.</p></div>
       <div role="group" aria-label="File view" className="flex gap-2">
         <Button variant="outline" aria-pressed={view === "grid"} onClick={() => setView("grid")}>Grid</Button>
@@ -51,7 +54,7 @@ export function FilesPage() {
       <Link to="/" className="inline-flex rounded-full bg-primary px-6 py-3 text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">Upload a file</Link>
     </div>}
     {visible.length > 0 && <ul aria-label="Your files" className={view === "grid" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" : "space-y-3"}>
-      {visible.map((file) => <FileEntry key={file.id} file={file} list={view === "list"} />)}
+      {visible.map((file) => <FileEntry key={file.id} file={file} list={view === "list"} onOpen={() => setSelected(file)} />)}
     </ul>}
     {items.length > 0 && visible.length === 0 && <p role="status" className="py-10 text-center text-muted-foreground">No loaded files match this name.</p>}
     <div ref={sentinel} data-testid="files-sentinel" className="mt-6 flex min-h-12 justify-center">
@@ -59,5 +62,6 @@ export function FilesPage() {
         {isFetchingNextPage ? "Loading more…" : "Load more files"}
       </Button>}
     </div>
+    {selected && <FilePanel key={selected.id} file={selected} onClose={() => { setSelected(null); document.getElementById("files-title")?.focus(); }} />}
   </section>;
 }

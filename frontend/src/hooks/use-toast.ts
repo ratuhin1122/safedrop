@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 
-export type ToastInput = { title: string; description?: string; variant?: "default" | "destructive" };
+export type ToastInput = { title: string; description?: string; variant?: "default" | "destructive"; action?: { label: string; onClick: () => void }; onDismiss?: () => void };
 export const ToastContext = createContext<((input: ToastInput) => void) | null>(null);
 
 export function useToast() {

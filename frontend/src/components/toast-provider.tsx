@@ -10,7 +10,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [notices, setNotices] = useState<Notice[]>([]);
   const next = useRef(0);
   const toast = useCallback((input: ToastInput) => {
-    setNotices((items) => [...items.slice(-3), { ...input, id: next.current++ }]);
+    setNotices((items) => [...items, { ...input, id: next.current++ }]);
   }, []);
   const dismiss = (id: number) => setNotices((items) => items.filter((item) => item.id !== id));
 
@@ -18,7 +18,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <Toast.Provider duration={6000} swipeDirection="right" label="Notification">
       {children}
       {notices.map((notice) => <Toast.Root key={notice.id} defaultOpen
-        onOpenChange={(open) => { if (!open) dismiss(notice.id); }}
+        onOpenChange={(open) => { if (!open) { notice.onDismiss?.(); dismiss(notice.id); } }}
         type={notice.variant === "destructive" ? "foreground" : "background"}
         className={cn("flex items-start gap-4 rounded-lg border bg-card p-5 text-card-foreground shadow-lg",
           notice.variant === "destructive" && "border-destructive")}>
@@ -28,6 +28,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             {notice.description}
           </Toast.Description>}
         </div>
+        {notice.action && <Toast.Action asChild altText={notice.action.label}>
+          <button className="min-h-11 rounded-full px-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring" onClick={notice.action.onClick}>{notice.action.label}</button>
+        </Toast.Action>}
         <Toast.Close aria-label="Dismiss notification" className="-m-2 grid size-11 shrink-0 place-items-center rounded-full hover:bg-accent">
           <Icon name="close" className="size-4" />
         </Toast.Close>
