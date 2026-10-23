@@ -30,7 +30,7 @@ func ReconcileExhausted(ctx context.Context, pool *pgxpool.Pool, metrics ...*obs
 	if _, err := tx.Exec(ctx, "UPDATE files SET status='scanning' WHERE status='uploaded' AND "+exhaustedFiles); err != nil {
 		return 0, err
 	}
-	result, err := tx.Exec(ctx, "UPDATE files SET status='rejected' WHERE status IN ('scanning','processing') AND "+exhaustedFiles)
+	result, err := tx.Exec(ctx, "UPDATE files SET status='rejected',reject_reason='processing_error' WHERE status IN ('scanning','processing') AND "+exhaustedFiles)
 	if err != nil {
 		return 0, err
 	}

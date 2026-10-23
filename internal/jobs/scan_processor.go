@@ -53,6 +53,9 @@ func (p *ScanProcessor) Process(ctx context.Context, queries *db.Queries, file d
 			if _, err := queries.RejectFile(ctx, file.ID); err != nil {
 				return err
 			}
+			if err := queries.SetVirusRejection(ctx, file.ID); err != nil {
+				return err
+			}
 			observability.LogRejection(ctx, p.Logger, file.ID.String(), "virus")
 			return errors.Join(closeErr, p.CleanupRejected(ctx, file))
 		case scan.Clean:

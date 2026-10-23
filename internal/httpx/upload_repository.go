@@ -60,6 +60,9 @@ func (d *UploadDatabase) CreateUpload(ctx context.Context, params db.CreateFileP
 	if err := d.Queue.Enqueue(ctx, tx, file.ID.String()); err != nil {
 		return db.File{}, err
 	}
+	if err := db.New(tx).RecordUploadEvent(ctx, params.OwnerID); err != nil {
+		return db.File{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		if errors.Is(err, pgx.ErrTxCommitRollback) {
 			return db.File{}, err

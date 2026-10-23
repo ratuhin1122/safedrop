@@ -1,50 +1,35 @@
 # POST /v1/files
 
-Send the raw file bytes with `Authorization: Bearer <token>` and one
-`X-Filename` header containing a display filename (at most 255 bytes, no paths
-or control characters). The filename extension and client Content-Type do not
-determine the detected type. Multipart form encoding is not supported here.
-
-Example using an access token returned by registration or login:
+Send multipart/form-data with exactly one file part named `file` and a display
+filename. Pass Authorization: Bearer <token>. Filenames are at most 255 bytes,
+without paths/control characters. Extensions and client MIME do not determine type.
 
 ```sh
-curl --data-binary @image.png \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H 'X-Filename: image.png' \
-  http://localhost:8080/v1/files
+curl -F 'file=@image.png' -H "Authorization: Bearer $TOKEN" http://localhost:8080/v1/files
 ```
 
-A successful response is `201` with `{"id":"<uuid>"}`. The row initially has
-status `uploaded`, and its private storage key starts with `incoming/`.
-Dimensions on the row remain unset until background processing completes.
+Success is 201 with `{"id":"<uuid>","status":"uploaded"}`. The private object
+starts in incoming/. Dimensions on the row are saved by background processing.
+Legacy raw-body requests with X-Filename remain supported.
 
-Authentication, filename checks, and declared size checks happen before reading
-the body. Actual streamed bytes are validated independently of Content-Length.
-Validation spools to a private temporary file, then streams that file to storage.
-Only after storage succeeds does a short PostgreSQL transaction insert the file
-row and call River `InsertTx` with a `process_file` job containing `file_id`.
-The River consumer runs with `make worker`; its processor interface is defined
-in internal/jobs. Scanning and image processing are supplied in later steps.
+Authentication, admission, and cheap header checks precede body reads. Multipart
+parsing streams; validation spools a bounded file to private temporary disk,
+checks actual bytes/type/dimensions, then streams it to incoming/ storage.
+MAX_UPLOAD_BYTES applies to file bytes; a separate 64 KiB envelope allowance
+bounds multipart headers. Additional parts are rejected before persistence.
 
-Validation errors return 400 (image, dimensions, minimum size), 413 (maximum
-size), or 415 (type). Authentication failures return 401. Operational failures
-return 500. A definite database failure rolls back the row and job and removes
-the incoming object. If a commit acknowledgment is lost, the object is retained
-because PostgreSQL may have committed; reconciliation can remove genuine orphans.
+A PostgreSQL transaction charges usage, creates the file, inserts the River job,
+and records a usage event. Definite failures roll back and remove the incoming
+object. An uncertain commit retains the object for later reconciliation.
 
-Export DATABASE_URL and apply both schema sets with `make migrate`, which runs
-goose followed by River's embedded migrations. Existing goose-only databases
-can run `make migrate-river`. Migration commands never run automatically in the
-API process. The migration binary supports River up migrations only; goose down
-commands affect application tables only.
+JSON errors have code and message. Size minimum/invalid image returns 400,
+maximum size 413, type 415, pixel limit 422, and admission/quota 429 with
+Retry-After. Virus rejection is asynchronous and exposed through reject_reason.
 
-Set STORAGE_BACKEND and storage settings from `.env.example`. Without DATABASE_URL,
-the API still exposes health checks but uploads return 503. With a database,
-set JWT_SECRET and obtain a token through registration or login, as documented
-in [accounts and ownership](../auth/README.md).
+Apply goose and River migrations with `make migrate` before starting API/worker.
+Compose does not migrate automatically; see the root README for container setup.
+Go binaries read exported env variables; .env is loaded by Compose only.
 
-Unit tests: `go test ./internal/httpx ./internal/auth ./internal/config`.
-Database integration tests: set TEST_DATABASE_URL to a migrated test PostgreSQL
-database and run `go test ./internal/httpx -run TestUpload -count=1`.
-They apply River migrations, verify HTTP 201 plus a committed row and job, and
-force a post-enqueue failure to verify both inserts roll back together.
+See [API contract](../../docs/api.md), [accounts](../auth/README.md), and
+[integration tests](../../docs/integration-tests.md). Set TEST_DATABASE_URL to a
+migrated disposable database to run database-backed HTTP tests.

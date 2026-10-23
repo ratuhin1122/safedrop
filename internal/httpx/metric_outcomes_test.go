@@ -59,7 +59,7 @@ func TestUploadOutcomeMetrics(t *testing.T) {
 	h.Limits.MaxBytes = 4096
 	send([]byte("plain text masquerading as an image"), 415)
 	h.Limits.MaxPixels = 1
-	send(data, 400)
+	send(data, 422)
 	h.Limits.MaxPixels = 100
 	h.Quota = &ratelimit.Quota{Queries: quotaReader{}, Bytes: 4096}
 	send(data, 429)

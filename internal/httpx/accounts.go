@@ -35,16 +35,16 @@ func accountEndpoint(accounts *auth.Accounts, register bool, check auth.Registra
 		decoder := json.NewDecoder(r.Body)
 		decoder.DisallowUnknownFields()
 		if decoder.Decode(&input) != nil || decoder.Decode(&struct{}{}) != io.EOF {
-			http.Error(w, "invalid credentials payload", 400)
+			Error(w, "invalid credentials payload", 400)
 			return
 		}
 		if check != nil {
 			if err := check.Verify(r.Context(), input.TurnstileToken, ratelimit.IP(r)); err != nil {
 				if errors.Is(err, auth.ErrChallenge) {
-					http.Error(w, "registration verification failed", 403)
+					Error(w, "registration verification failed", 403)
 				} else {
 					w.Header().Set("Retry-After", "5")
-					http.Error(w, "registration verification unavailable", 503)
+					Error(w, "registration verification unavailable", 503)
 				}
 				return
 			}
@@ -64,7 +64,7 @@ func accountEndpoint(accounts *auth.Accounts, register bool, check auth.Registra
 				status, message = 429, "authentication busy"
 				w.Header().Set("Retry-After", "1")
 			}
-			http.Error(w, message, status)
+			Error(w, message, status)
 			return
 		}
 		status := http.StatusOK
@@ -73,6 +73,6 @@ func accountEndpoint(accounts *auth.Accounts, register bool, check auth.Registra
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(status)
-		_ = json.NewEncoder(w).Encode(map[string]any{"access_token": token, "token_type": "Bearer", "expires_in": 900})
+		_ = json.NewEncoder(w).Encode(map[string]any{"token": token})
 	}
 }

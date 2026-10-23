@@ -10,9 +10,9 @@ POST `/v1/auth/register` or `/v1/auth/login` with JSON:
 {"email":"person@example.com","password":"a long unique password"}
 ```
 
-Registration returns 201; login returns 200. Both return `access_token`,
-`token_type: "Bearer"`, and `expires_in: 900`. Pass the token in the
-`Authorization: Bearer <access_token>` header for uploads, shares, and files.
+Registration returns 201; login returns 200. Both return JSON `{"token":"..."}`; tokens expire after 900 seconds.
+Pass the token in the
+`Authorization: Bearer <token>` header for uploads, shares, and files.
 Tokens use HS256 with an enforced algorithm, issuer, audience, and expiry.
 There is no refresh or revocation endpoint; rotating the secret invalidates tokens.
 

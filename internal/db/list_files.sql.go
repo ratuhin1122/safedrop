@@ -12,7 +12,7 @@ import (
 )
 
 const listOwnerFiles = `-- name: ListOwnerFiles :many
-SELECT id, owner_id, status, original_name, mime, size, width, height, storage_key, created_at, deleted_at FROM files WHERE owner_id = $1 AND deleted_at IS NULL
+SELECT id, owner_id, status, original_name, mime, size, width, height, storage_key, created_at, deleted_at, reject_reason FROM files WHERE owner_id = $1 AND deleted_at IS NULL
 ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $2
 `
 
@@ -43,6 +43,7 @@ func (q *Queries) ListOwnerFiles(ctx context.Context, arg ListOwnerFilesParams) 
 			&i.StorageKey,
 			&i.CreatedAt,
 			&i.DeletedAt,
+			&i.RejectReason,
 		); err != nil {
 			return nil, err
 		}

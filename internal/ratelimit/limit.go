@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"net"
 	"net/http"
@@ -41,7 +42,9 @@ func Respond(w http.ResponseWriter, retry time.Duration) {
 	}
 	w.Header().Set("Retry-After", strconv.FormatInt(seconds, 10))
 	w.Header().Set("Cache-Control", "no-store")
-	http.Error(w, "rate or quota limit exceeded", http.StatusTooManyRequests)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusTooManyRequests)
+	_ = json.NewEncoder(w).Encode(map[string]string{"code": "rate_limited", "message": "rate or quota limit exceeded"})
 }
 
 func UntilTomorrow(now time.Time) time.Duration {

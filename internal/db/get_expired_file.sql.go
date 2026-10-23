@@ -12,7 +12,7 @@ import (
 )
 
 const getExpiredFile = `-- name: GetExpiredFile :one
-SELECT f.id, f.owner_id, f.status, f.original_name, f.mime, f.size, f.width, f.height, f.storage_key, f.created_at, f.deleted_at FROM files f JOIN share_file_deletions d ON d.file_id = f.id
+SELECT f.id, f.owner_id, f.status, f.original_name, f.mime, f.size, f.width, f.height, f.storage_key, f.created_at, f.deleted_at, f.reject_reason FROM files f JOIN share_file_deletions d ON d.file_id = f.id
 WHERE f.id = $1 AND f.deleted_at IS NOT NULL
 `
 
@@ -31,6 +31,7 @@ func (q *Queries) GetExpiredFile(ctx context.Context, id pgtype.UUID) (File, err
 		&i.StorageKey,
 		&i.CreatedAt,
 		&i.DeletedAt,
+		&i.RejectReason,
 	)
 	return i, err
 }

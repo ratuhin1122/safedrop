@@ -14,7 +14,7 @@ import (
 const createFile = `-- name: CreateFile :one
 INSERT INTO files (owner_id, original_name, mime, size, storage_key)
 VALUES ($1, $2, $3,
-        $4, $5) RETURNING id, owner_id, status, original_name, mime, size, width, height, storage_key, created_at, deleted_at
+        $4, $5) RETURNING id, owner_id, status, original_name, mime, size, width, height, storage_key, created_at, deleted_at, reject_reason
 `
 
 type CreateFileParams struct {
@@ -46,6 +46,7 @@ func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (File, e
 		&i.StorageKey,
 		&i.CreatedAt,
 		&i.DeletedAt,
+		&i.RejectReason,
 	)
 	return i, err
 }

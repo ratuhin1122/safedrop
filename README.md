@@ -1,12 +1,9 @@
 # safedrop
 
-A Go service for streamed image uploads, background scanning and conversion,
-and sharing through expiring links. Currently accepts JPEG, PNG, WebP, and HEIC;
+A Go service for streamed image uploads, background scanning/conversion, and sharing through expiring links. Currently accepts JPEG, PNG, WebP, and HEIC;
 arbitrary file uploads are not enabled.
 
-Stack: Go 1.25, chi, pgx v5, sqlc, goose, River, govips/libvips, clamd,
-aws-sdk-go-v2 with S3-compatible storage or a local volume, Compose, and slog.
-
+Stack: Go 1.25, chi, pgx v5, sqlc, goose, River, govips/libvips, clamd, aws-sdk-go-v2 with S3-compatible storage or a local volume, Compose, and slog.
 ## Architecture
 
 ```text
@@ -35,7 +32,6 @@ Run from the repository root; these examples use POSIX shell quoting:
 
 ```sh
 cp .env.example .env
-# Edit .env and set JWT_SECRET before starting the API.
 docker build --target build -t safedrop-build .
 docker compose up -d --wait postgres clamd
 docker run --rm --network safedrop_default \
@@ -89,23 +85,28 @@ read exported variables. Compose overrides addresses intended for host tools.
 
 ## API
 
-Pass `Authorization: Bearer <access_token>` for authenticated endpoints.
+Pass `Authorization: Bearer <token>` for authenticated endpoints.
 
 | Method and path | Authentication / behavior |
 | --- | --- |
 | GET /healthz | Public; 200 liveness response. |
 | POST /v1/auth/register | JSON email/password, optional turnstile_token; 201 access token. |
 | POST /v1/auth/login | JSON email/password; 200 access token, valid for 15 minutes. |
-| POST /v1/files | Bearer; raw bytes with X-Filename, not multipart; 201 JSON id. |
+| POST /v1/files | Bearer; multipart file part; 201 JSON id and status. |
 | GET /v1/files?limit=20&cursor=... | Bearer; owned metadata, limit 1–100, opaque next_cursor. |
 | GET /v1/files/{id} | Bearer; owned metadata and processing status. |
 | DELETE /v1/files/{id} | Bearer; soft delete, 204; foreign/missing files return 404. |
-| POST /v1/files/{id}/shares | Bearer; owned ready file; JSON expires_at, optional password/max_downloads; 201 link. |
+| POST /v1/files/{id}/share | Bearer; owned ready file; JSON expires_at, optional password/max_downloads; 201 link. |
+| GET /v1/files/{id}/shares | Bearer; owned share metadata, including revocation IDs. |
+| DELETE /v1/shares/{id} | Bearer; revoke an owned share, 204. |
+| GET /v1/me/usage | Bearer; daily bytes and rolling-hour upload counts/limits. |
 | GET /s/{token} | Link capability; protected links use HTTP Basic password; expired/exhausted links return 410. |
 
 See [upload examples](internal/httpx/UPLOADS.md), [accounts](internal/auth/README.md),
 and [share semantics](internal/share/README.md). Upload errors include 400 for
-size minimum/dimensions, 413 for size maximum, 415 for type, and 429 with Retry-After.
+size minimum, 413 for size maximum, 415 for type, 422 for pixels, and 429 with Retry-After.
+
+See [API contract](docs/api.md) for variants, share management, usage, and JSON errors.
 
 ## Observability
 
@@ -140,7 +141,6 @@ for a disposable database and optional live clamd checks; unset test variables s
 Entry points: cmd/{api,worker,migrate}. internal/: config, db, storage, validate,
 scan, imageproc, jobs, share, auth, ratelimit, httpx, observability. SQL lives in
 migrations/ and queries/; deploy/ holds monitoring configuration. Keep files under 150 lines and add tests.
-
 ## Later
 
 - [tusd](https://tus.github.io/tusd/): resumable uploads; authenticate creation, enforce quotas, and enqueue only completed uploads into incoming/.

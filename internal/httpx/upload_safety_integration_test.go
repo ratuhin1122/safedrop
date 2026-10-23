@@ -32,7 +32,7 @@ func TestUploadSafetyPostgres(t *testing.T) {
 		status  int
 		chunked bool
 	}{
-		{"image bomb", bomb, 400, false},
+		{"image bomb", bomb, 422, false},
 		{"PNG renamed to jpg", png, 201, false},
 		{"raw EICAR fails image allowlist", []byte(eicar), 415, false},
 		{"oversize declared length", append(append([]byte(nil), png...), make([]byte, 4096)...), 413, false},

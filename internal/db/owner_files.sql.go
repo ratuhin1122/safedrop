@@ -12,7 +12,7 @@ import (
 )
 
 const getOwnerFile = `-- name: GetOwnerFile :one
-SELECT id, owner_id, status, original_name, mime, size, width, height, storage_key, created_at, deleted_at FROM files WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL
+SELECT id, owner_id, status, original_name, mime, size, width, height, storage_key, created_at, deleted_at, reject_reason FROM files WHERE id = $1 AND owner_id = $2 AND deleted_at IS NULL
 `
 
 type GetOwnerFileParams struct {
@@ -35,12 +35,13 @@ func (q *Queries) GetOwnerFile(ctx context.Context, arg GetOwnerFileParams) (Fil
 		&i.StorageKey,
 		&i.CreatedAt,
 		&i.DeletedAt,
+		&i.RejectReason,
 	)
 	return i, err
 }
 
 const pageOwnerFiles = `-- name: PageOwnerFiles :many
-SELECT id, owner_id, status, original_name, mime, size, width, height, storage_key, created_at, deleted_at FROM files WHERE owner_id = $1 AND deleted_at IS NULL
+SELECT id, owner_id, status, original_name, mime, size, width, height, storage_key, created_at, deleted_at, reject_reason FROM files WHERE owner_id = $1 AND deleted_at IS NULL
 AND (NOT $2::boolean OR (created_at, id) < ($3::timestamptz, $4::uuid))
 ORDER BY created_at DESC, id DESC LIMIT $5
 `
@@ -80,6 +81,7 @@ func (q *Queries) PageOwnerFiles(ctx context.Context, arg PageOwnerFilesParams) 
 			&i.StorageKey,
 			&i.CreatedAt,
 			&i.DeletedAt,
+			&i.RejectReason,
 		); err != nil {
 			return nil, err
 		}

@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"errors"
+	"mime"
 	"net/http"
 	"strings"
 	"unicode"
@@ -13,6 +14,13 @@ import (
 // These checks run after authentication and before the first body read.
 // X-Filename is display metadata; it never determines type or storage paths.
 func checkUpload(r *http.Request, limits validate.Limits) (string, int, error) {
+	media, params, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if media == "multipart/form-data" {
+		if params["boundary"] == "" || r.Body == nil {
+			return "", 400, errors.New("multipart boundary and body required")
+		}
+		return "", 0, nil
+	}
 	values := r.Header.Values("X-Filename")
 	if len(values) != 1 {
 		return "", http.StatusBadRequest, errors.New("one X-Filename header is required")

@@ -18,6 +18,8 @@ func WithUploads(handler http.Handler) RouterOption {
 
 func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix, metrics *observability.Metrics, options ...RouterOption) http.Handler {
 	r := chi.NewRouter()
+	r.NotFound(func(w http.ResponseWriter, _ *http.Request) { Error(w, "not found", 404) })
+	r.MethodNotAllowed(func(w http.ResponseWriter, _ *http.Request) { Error(w, "method not allowed", 405) })
 	r.Use(TrustedProxy(trustedProxies))
 	r.Use(metrics.HTTPMiddleware)
 	r.Use(requestTelemetry)
@@ -29,7 +31,7 @@ func NewRouter(logger *slog.Logger, trustedProxies []netip.Prefix, metrics *obse
 					if recovered == http.ErrAbortHandler {
 						panic(recovered)
 					}
-					http.Error(w, "internal server error", http.StatusInternalServerError)
+					Error(w, "internal server error", http.StatusInternalServerError)
 				}
 			}()
 			next.ServeHTTP(w, r)

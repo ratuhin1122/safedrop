@@ -12,7 +12,9 @@ import (
 )
 
 const advanceFile = `-- name: AdvanceFile :execrows
-UPDATE files SET status = $1
+UPDATE files SET status = $1, reject_reason = CASE
+ WHEN $1::text = 'rejected' THEN COALESCE(reject_reason, 'processing_error')
+ ELSE reject_reason END
 WHERE id = $2 AND status = $3 AND deleted_at IS NULL
 AND ((status = 'uploaded' AND $1::text = 'scanning')
   OR (status = 'scanning' AND $1::text IN ('processing', 'rejected'))

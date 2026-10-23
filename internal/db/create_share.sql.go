@@ -13,11 +13,11 @@ import (
 
 const createShareLink = `-- name: CreateShareLink :one
 INSERT INTO share_links (token_hash, file_id, expires_at, password_hash, max_downloads)
-SELECT $1, id, $2,
+SELECT $1, files.id, $2,
        $3, $4
-FROM files WHERE id = $5 AND owner_id = $6
+FROM files WHERE files.id = $5 AND owner_id = $6
     AND status = 'ready' AND deleted_at IS NULL
-RETURNING token_hash, file_id, expires_at, password_hash, max_downloads, download_count
+RETURNING token_hash, file_id, expires_at, password_hash, max_downloads, download_count, id
 `
 
 type CreateShareLinkParams struct {
@@ -46,6 +46,7 @@ func (q *Queries) CreateShareLink(ctx context.Context, arg CreateShareLinkParams
 		&i.PasswordHash,
 		&i.MaxDownloads,
 		&i.DownloadCount,
+		&i.ID,
 	)
 	return i, err
 }

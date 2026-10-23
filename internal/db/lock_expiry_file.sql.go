@@ -12,7 +12,7 @@ import (
 )
 
 const lockExpiryFile = `-- name: LockExpiryFile :one
-SELECT id, owner_id, status, original_name, mime, size, width, height, storage_key, created_at, deleted_at FROM files WHERE id = $1 FOR UPDATE
+SELECT id, owner_id, status, original_name, mime, size, width, height, storage_key, created_at, deleted_at, reject_reason FROM files WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) LockExpiryFile(ctx context.Context, id pgtype.UUID) (File, error) {
@@ -30,6 +30,7 @@ func (q *Queries) LockExpiryFile(ctx context.Context, id pgtype.UUID) (File, err
 		&i.StorageKey,
 		&i.CreatedAt,
 		&i.DeletedAt,
+		&i.RejectReason,
 	)
 	return i, err
 }

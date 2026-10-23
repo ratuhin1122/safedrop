@@ -15,7 +15,7 @@ Without TEST_DATABASE_URL, database integration tests explicitly skip.
 
 | Scenario | Integration test and assertions |
 | --- | --- |
-| Image bomb | TestUploadSafetyPostgres: valid PNG header declares 100000×100000 pixels; HTTP 400 for pixel limit, no row/job/usage/object/temp-file leaks. |
+| Image bomb | TestUploadSafetyPostgres: valid PNG header declares 100000×100000 pixels; HTTP 422 for pixel limit, no row/job/usage/object/temp-file leaks. |
 | PNG renamed .jpg | TestUploadSafetyPostgres: HTTP 201 despite JPEG filename and Content-Type, stored MIME is image/png, original bytes preserved, one row/job/usage entry. |
 | EICAR upload | TestUploadSafetyPostgres: raw EICAR receives 415 under the image allowlist, with no persisted effects. |
 | EICAR background scan | TestUploadAndScanShareInjectedMetrics: PNG containing EICAR is uploaded and enqueued, then rejected; incoming object deleted and no final variant published. |

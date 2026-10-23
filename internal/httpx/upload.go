@@ -37,14 +37,14 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	owner, err := h.Auth.Authenticate(r)
 	if err != nil || !owner.Valid || owner.Bytes == [16]byte{} {
 		w.Header().Set("WWW-Authenticate", "Bearer")
-		http.Error(w, "authentication required", http.StatusUnauthorized)
+		Error(w, "authentication required", http.StatusUnauthorized)
 		return
 	}
 	observability.SetUserID(r.Context(), owner.String())
 	name, status, err := checkUpload(r, h.Limits)
 	if err != nil {
 		h.recordUploadRejection(r.Context(), err)
-		http.Error(w, err.Error(), status)
+		Error(w, err.Error(), status)
 		return
 	}
 	release, ok := h.admit(w, r, owner)
@@ -62,6 +62,9 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.Logger.ErrorContext(r.Context(), "upload temp cleanup failed")
 		}
 	}()
+	if name == "" {
+		name = r.Header.Get("X-Filename")
+	}
 	if h.Quota != nil {
 		if err := h.Quota.Check(r.Context(), owner, file.Size); err != nil {
 			h.uploadError(w, r, err)
@@ -95,8 +98,9 @@ func (h *UploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(struct {
-		ID string `json:"id"`
-	}{ID: row.ID.String()})
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	}{ID: row.ID.String(), Status: "uploaded"})
 }
 
 func (h *UploadHandler) cleanupUpload(ctx context.Context, key string) {
@@ -118,7 +122,9 @@ func (h *UploadHandler) uploadError(w http.ResponseWriter, r *http.Request, err 
 		status, message = http.StatusRequestEntityTooLarge, "upload exceeds the maximum size"
 	case errors.Is(err, validate.ErrType):
 		status, message = http.StatusUnsupportedMediaType, "unsupported image type"
-	case errors.Is(err, validate.ErrTooSmall), errors.Is(err, validate.ErrImage), errors.Is(err, validate.ErrPixels):
+	case errors.Is(err, validate.ErrPixels):
+		status, message = http.StatusUnprocessableEntity, "image exceeds the pixel limit"
+	case errors.Is(err, validate.ErrTooSmall), errors.Is(err, validate.ErrImage):
 		status, message = http.StatusBadRequest, "invalid image or dimensions"
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		status, message = http.StatusRequestTimeout, "upload canceled or timed out"
@@ -126,5 +132,5 @@ func (h *UploadHandler) uploadError(w http.ResponseWriter, r *http.Request, err 
 	if status == http.StatusInternalServerError {
 		h.Logger.ErrorContext(r.Context(), "upload failed")
 	}
-	http.Error(w, message, status)
+	Error(w, message, status)
 }

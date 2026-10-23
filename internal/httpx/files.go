@@ -12,6 +12,7 @@ import (
 	"safedrop/internal/auth"
 	"safedrop/internal/db"
 	"safedrop/internal/observability"
+	"safedrop/internal/storage"
 )
 
 type FileQueries interface {
@@ -23,6 +24,7 @@ type FileQueries interface {
 type FilesHandler struct {
 	Auth    auth.Authenticator
 	Queries FileQueries
+	Storage storage.Store
 }
 
 func WithFiles(h *FilesHandler) RouterOption {
@@ -30,6 +32,7 @@ func WithFiles(h *FilesHandler) RouterOption {
 		r.Get("/v1/files", h.List)
 		r.Get("/v1/files/{id}", h.One)
 		r.Delete("/v1/files/{id}", h.One)
+		r.Get("/v1/files/{id}/variants/{width}", h.Variant)
 	}
 }
 
@@ -38,7 +41,7 @@ func (h *FilesHandler) owner(w http.ResponseWriter, r *http.Request) (pgtype.UUI
 	id, err := h.Auth.Authenticate(r)
 	if err != nil || !id.Valid || id.Bytes == [16]byte{} {
 		w.Header().Set("WWW-Authenticate", "Bearer")
-		http.Error(w, "authentication required", 401)
+		Error(w, "authentication required", 401)
 		return id, false
 	}
 	observability.SetUserID(r.Context(), id.String())
@@ -52,17 +55,17 @@ func (h *FilesHandler) One(w http.ResponseWriter, r *http.Request) {
 	}
 	var id pgtype.UUID
 	if id.Scan(chi.URLParam(r, "id")) != nil || !id.Valid {
-		http.Error(w, "invalid file id", 400)
+		Error(w, "invalid file id", 400)
 		return
 	}
 	if r.Method == http.MethodDelete {
 		n, err := h.Queries.SoftDeleteFile(r.Context(), db.SoftDeleteFileParams{ID: id, OwnerID: owner})
 		if err != nil {
-			http.Error(w, "file operation failed", 500)
+			Error(w, "file operation failed", 500)
 			return
 		}
 		if n == 0 {
-			http.NotFound(w, r)
+			Error(w, "not found", 404)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -70,13 +73,18 @@ func (h *FilesHandler) One(w http.ResponseWriter, r *http.Request) {
 	}
 	f, err := h.Queries.GetOwnerFile(r.Context(), db.GetOwnerFileParams{ID: id, OwnerID: owner})
 	if errors.Is(err, pgx.ErrNoRows) {
-		http.NotFound(w, r)
+		Error(w, "not found", 404)
 		return
 	}
 	if err != nil {
-		http.Error(w, "file operation failed", 500)
+		Error(w, "file operation failed", 500)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(publicFile(f))
+	view, err := h.view(r, f)
+	if err != nil {
+		Error(w, "file operation failed", 500)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(view)
 }

@@ -20,6 +20,7 @@ type File struct {
 	StorageKey   string
 	CreatedAt    pgtype.Timestamptz
 	DeletedAt    pgtype.Timestamptz
+	RejectReason pgtype.Text
 }
 
 type FileCleanup struct {
@@ -49,6 +50,13 @@ type ShareLink struct {
 	PasswordHash  pgtype.Text
 	MaxDownloads  pgtype.Int8
 	DownloadCount int64
+	ID            pgtype.UUID
+}
+
+type UploadEvent struct {
+	ID        pgtype.UUID
+	UserID    pgtype.UUID
+	CreatedAt pgtype.Timestamptz
 }
 
 type UploadUsage struct {

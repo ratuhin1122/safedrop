@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"errors"
+	"mime"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -36,7 +37,12 @@ func (h *UploadHandler) admit(w http.ResponseWriter, r *http.Request, owner pgty
 		release, err = h.Admission.Begin(r.Context(), owner.String(), ratelimit.IP(r))
 	}
 	if err == nil && h.Quota != nil {
-		err = h.Quota.Check(r.Context(), owner, r.ContentLength)
+		size := r.ContentLength
+		media, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if media == "multipart/form-data" {
+			size = -1
+		}
+		err = h.Quota.Check(r.Context(), owner, size)
 	}
 	if err != nil {
 		if release != nil {

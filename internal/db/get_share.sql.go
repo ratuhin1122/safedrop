@@ -10,7 +10,7 @@ import (
 )
 
 const getShareLink = `-- name: GetShareLink :one
-SELECT s.token_hash, s.file_id, s.expires_at, s.password_hash, s.max_downloads, s.download_count FROM share_links s JOIN files f ON f.id = s.file_id
+SELECT s.token_hash, s.file_id, s.expires_at, s.password_hash, s.max_downloads, s.download_count, s.id FROM share_links s JOIN files f ON f.id = s.file_id
 WHERE s.token_hash = $1 AND s.expires_at > now()
     AND (s.max_downloads IS NULL OR s.download_count < s.max_downloads)
     AND f.status = 'ready' AND f.deleted_at IS NULL
@@ -26,6 +26,7 @@ func (q *Queries) GetShareLink(ctx context.Context, tokenHash []byte) (ShareLink
 		&i.PasswordHash,
 		&i.MaxDownloads,
 		&i.DownloadCount,
+		&i.ID,
 	)
 	return i, err
 }

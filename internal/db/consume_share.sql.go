@@ -15,7 +15,7 @@ WHERE s.token_hash = $1 AND s.expires_at > now()
     AND (s.max_downloads IS NULL OR s.download_count < s.max_downloads)
     AND EXISTS (SELECT 1 FROM files f WHERE f.id = s.file_id
         AND f.status = 'ready' AND f.deleted_at IS NULL)
-RETURNING s.token_hash, s.file_id, s.expires_at, s.password_hash, s.max_downloads, s.download_count
+RETURNING s.token_hash, s.file_id, s.expires_at, s.password_hash, s.max_downloads, s.download_count, s.id
 `
 
 // Caller must verify any password before reserving a download.
@@ -29,6 +29,7 @@ func (q *Queries) ConsumeShareDownload(ctx context.Context, tokenHash []byte) (S
 		&i.PasswordHash,
 		&i.MaxDownloads,
 		&i.DownloadCount,
+		&i.ID,
 	)
 	return i, err
 }

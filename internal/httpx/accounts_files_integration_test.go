@@ -47,7 +47,7 @@ func TestAccountsAndFileOwnership(t *testing.T) {
 			t.Fatalf("register: %d %s", w.Code, w.Body)
 		}
 		var result struct {
-			Token string `json:"access_token"`
+			Token string `json:"token"`
 		}
 		if json.Unmarshal(w.Body.Bytes(), &result) != nil || result.Token == "" {
 			t.Fatal("missing token")
@@ -84,7 +84,7 @@ func TestAccountsAndFileOwnership(t *testing.T) {
 	for _, token := range []string{aToken, bToken} {
 		w := request("GET", "/v1/files?limit=100", token, "")
 		var listing struct {
-			Files []fileView `json:"files"`
+			Files []fileView `json:"items"`
 		}
 		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &listing) != nil {
 			t.Fatal("list failed")
@@ -117,7 +117,7 @@ func TestAccountsAndFileOwnership(t *testing.T) {
 		t.Fatal(w.Code)
 	}
 	var page struct {
-		Files []fileView `json:"files"`
+		Files []fileView `json:"items"`
 		Next  string     `json:"next_cursor"`
 	}
 	w := request("GET", "/v1/files?limit=1", aToken, "")

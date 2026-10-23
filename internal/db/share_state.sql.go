@@ -10,7 +10,7 @@ import (
 )
 
 const getShareLinkState = `-- name: GetShareLinkState :one
-SELECT token_hash, file_id, expires_at, password_hash, max_downloads, download_count FROM share_links WHERE token_hash = $1
+SELECT token_hash, file_id, expires_at, password_hash, max_downloads, download_count, id FROM share_links WHERE token_hash = $1
 `
 
 func (q *Queries) GetShareLinkState(ctx context.Context, tokenHash []byte) (ShareLink, error) {
@@ -23,6 +23,7 @@ func (q *Queries) GetShareLinkState(ctx context.Context, tokenHash []byte) (Shar
 		&i.PasswordHash,
 		&i.MaxDownloads,
 		&i.DownloadCount,
+		&i.ID,
 	)
 	return i, err
 }

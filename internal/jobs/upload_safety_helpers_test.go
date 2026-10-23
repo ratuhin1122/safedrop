@@ -91,6 +91,9 @@ func assertScannedUpload(t *testing.T, ctx context.Context, pool *pgxpool.Pool, 
 	if file.Status != want {
 		t.Fatalf("status=%s want=%s", file.Status, want)
 	}
+	if infected && file.RejectReason.String != "virus" {
+		t.Fatalf("reason=%v", file.RejectReason)
+	}
 	body, err := store.Get(ctx, original.StorageKey)
 	if body != nil {
 		body.Close()
