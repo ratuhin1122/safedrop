@@ -13,7 +13,7 @@ function shell() {
 }
 
 describe("layout", () => {
-  it("renders empty content and persists a keyboard-operated theme choice", async () => {
+  it("renders the upload layout and persists a keyboard-operated theme choice", async () => {
     const user = userEvent.setup();
     shell();
     expect(screen.getByRole("main")).toBeInTheDocument();

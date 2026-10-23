@@ -4,11 +4,12 @@ import { EmptyPage } from "@/pages/empty-page";
 import { NotFound } from "@/pages/not-found";
 import { AuthPage } from "@/pages/auth-page";
 import { ProtectedRoute } from "@/components/protected-route";
+import { UploadPage } from "@/pages/upload-page";
 
 export function App() {
   return <Routes>
     <Route element={<Layout />}>
-      <Route index element={<EmptyPage title="Upload" />} />
+      <Route index element={<UploadPage />} />
       <Route element={<ProtectedRoute />}>
         <Route path="files" element={<EmptyPage title="My files" />} />
       </Route>

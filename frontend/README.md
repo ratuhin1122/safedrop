@@ -10,7 +10,7 @@ npm install
 npm run dev
 ```
 
-The Vite server prints its local URL. Upload and My files remain content shells;
+The Vite server prints its local URL. Home has a local upload queue; My files remains a content shell.
 Sign in and Create account are working validated forms. My files requires login.
 The user menu reflects the session and offers sign-out when authenticated.
 The theme toggle supports keyboard activation, follows system preference until
@@ -26,6 +26,7 @@ if relaxing that size rule to pin transitive dependencies.
 
 - VITE_API_URL: API base including /v1; default /v1 uses the development proxy.
 - API_PROXY_TARGET: Vite-only Go API origin; configured in .env, not bundled.
+- VITE_MAX_UPLOAD_BYTES: per-file pre-check limit; default 26214400 (shown as 25 MB), matching the API's 25 MiB.
 - VITE_TURNSTILE_SITE_KEY: public browser key; no private keys belong in VITE_*.
 - src/api: schema-validated client; callers pass a zod response schema and token.
 - src/components: header/layout, theme/toast providers, editable shadcn UI primitives.
@@ -56,6 +57,17 @@ Cloudflare widget on registration only; empty skips its script and widget. Confi
 the matching TURNSTILE_SECRET on the API. Expiry, errors, and failed submissions
 invalidate tokens; widgets are removed on unmount. Turnstile tokens are not logged or stored.
 See [Cloudflare rendering](https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/).
+
+## Local upload queue
+
+Home supports browsing and drag/drop of multiple JPEG, PNG, WebP, and HEIC files.
+Limits are visible before selection. Extension checks are hints, not content
+validation; the backend will still verify bytes and scan when uploads are wired.
+Rejected rows show per-file size/type/empty-file messages and can be removed.
+Selecting or dropping files makes no network calls and reads no file contents.
+The queue is held only in component memory and resets when leaving the page.
+Validation: production build and all 33 tests passed, including a 100 MB drop
+showing "Max size is 25 MB" with no fetch call. Light/dark layouts were browser-checked.
 
 Validation: type checking, production build, auth/route/session tests, and mocked
 Turnstile lifecycle tests pass. Browser checks confirmed /files redirects to
