@@ -1,36 +1,14 @@
-import { useMemo } from "react";
-import { UploadDropZone } from "@/components/upload-drop-zone";
-import { UploadQueue } from "@/components/upload-queue";
-import { useUploadQueue } from "@/hooks/use-upload-queue";
-import { uploadLimit } from "@/lib/upload";
-import { useCountdown } from "@/hooks/use-countdown";
-import { Button } from "@/components/ui/button";
+import { useSyncExternalStore } from "react";
+import { getAccessToken, subscribeSession } from "@/api/session";
+import { UploadWorkspace } from "@/components/upload-workspace";
+import { useUsage } from "@/hooks/use-usage";
+
+function ConnectedUpload() {
+  const { data, isPending, error, refresh } = useUsage();
+  return <UploadWorkspace signedIn usage={data} loading={isPending} error={error} onRefresh={refresh} />;
+}
 
 export function UploadPage() {
-  const config = useMemo(() => {
-    try { return { maxBytes: uploadLimit(), error: null }; }
-    catch (error) { return { maxBytes: 0, error: error instanceof Error ? error.message : "Upload configuration is invalid." }; }
-  }, []);
-  const { items, addFiles, removeFile, retryAt, start, retry, cancel } = useUploadQueue(config.maxBytes);
-  const cooldown = useCountdown(retryAt);
-  const selected = items.filter((item) => item.state === "selected").length;
-  return <section className="mx-auto max-w-2xl rounded-xl border bg-card p-5 sm:p-10" aria-labelledby="upload-title">
-    <h1 id="upload-title" className="text-3xl font-semibold tracking-tight">A little space to share.</h1>
-    <p className="mb-8 mt-3 text-sm leading-relaxed text-muted-foreground">Choose the images you want to send.</p>
-    {config.error ? <p role="alert" className="text-sm text-destructive">{config.error}</p> : <>
-      <UploadDropZone maxBytes={config.maxBytes} onFiles={addFiles} />
-      <p id="upload-privacy" className="mt-5 text-center text-xs leading-relaxed text-muted-foreground">
-        Nothing is sent until you choose Upload files.<br />
-        Extensions are a quick hint; SafeDrop checks file contents after upload.
-      </p>
-      <UploadQueue items={items} cooldown={cooldown} onRemove={removeFile} onRetry={retry} onCancel={cancel} />
-      {items.length > 0 && <div className="mt-6 space-y-3">
-        {cooldown > 0 && <p role="status" className="text-sm text-destructive">
-          Too many uploads, try again in {cooldown} seconds
-        </p>}
-        <Button className="w-full" disabled={selected === 0 || cooldown > 0} onClick={start}>Upload files</Button>
-        <p className="text-center text-xs text-muted-foreground">Up to 3 files upload at once. Cancelling cannot undo a completed server upload.</p>
-      </div>}
-    </>}
-  </section>;
+  const token = useSyncExternalStore(subscribeSession, getAccessToken, () => null);
+  return token ? <ConnectedUpload key={token} /> : <UploadWorkspace />;
 }

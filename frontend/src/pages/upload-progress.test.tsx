@@ -1,3 +1,4 @@
+vi.mock("@/api/usage", () => ({ getUsage: vi.fn(async () => ({ bytes_today: 0, bytes_limit: 1000000, uploads_this_hour: 0, uploads_limit: 20 })) }));
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { UploadPage } from "@/pages/upload-page";

@@ -11,6 +11,8 @@ export class UploadController {
   private active = new Map<number, UploadTask>();
   private nextId = 0;
   private stopped = false;
+  private blocked = false;
+  setBlocked = (value: boolean) => { this.blocked = value; if (!value) this.pump(); };
   private wake?: ReturnType<typeof setTimeout>;
   constructor(private maxBytes: number) {}
   getSnapshot = () => this.snapshot;
@@ -24,6 +26,7 @@ export class UploadController {
     this.publish(this.snapshot.items.map((item) => item.id === id ? { ...item, ...update } : item));
   }
   addFiles = (files: File[]) => {
+    if (this.blocked) return;
     const items = files.map((file): QueueItem => {
       const error = checkFile(file, this.maxBytes);
       return { id: this.nextId++, file, error, state: error ? "invalid" : "selected", progress: 0 };
@@ -31,12 +34,12 @@ export class UploadController {
     this.publish([...this.snapshot.items, ...items]);
   };
   start = () => {
-    if (Date.now() < this.snapshot.retryAt) return;
+    if (this.blocked || Date.now() < this.snapshot.retryAt) return;
     this.publish(this.snapshot.items.map((item) => item.state === "selected" ? { ...item, state: "queued" } : item));
     this.pump();
   };
   retry = (id: number) => {
-    if (Date.now() < this.snapshot.retryAt) return;
+    if (this.blocked || Date.now() < this.snapshot.retryAt) return;
     const item = this.snapshot.items.find((item) => item.id === id);
     if (!item || !["error", "cancelled"].includes(item.state)) return;
     this.patch(id, { state: "queued", error: null, errorStatus: undefined, progress: 0 });
@@ -56,7 +59,7 @@ export class UploadController {
     this.active.forEach((task) => task.abort());
   };
   private pump() {
-    if (this.stopped || Date.now() < this.snapshot.retryAt) return;
+    if (this.blocked || this.stopped || Date.now() < this.snapshot.retryAt) return;
     while (this.active.size < 3) {
       const item = this.snapshot.items.find((item) => item.state === "queued" && !this.active.has(item.id));
       if (!item) break;

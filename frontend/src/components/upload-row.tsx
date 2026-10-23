@@ -4,10 +4,10 @@ import { formatBytes } from "@/lib/upload";
 import type { QueueItem } from "@/lib/upload-state";
 import { FileStatus } from "@/components/file-status";
 
-type Props = { item: QueueItem; cooldown: number; onRemove: (id: number) => void;
+type Props = { item: QueueItem; cooldown: number; blocked?: boolean; onRemove: (id: number) => void;
   onCancel: (id: number) => void; onRetry: (id: number) => void };
 
-export function UploadRow({ item, cooldown, onRemove, onCancel, onRetry }: Props) {
+export function UploadRow({ item, cooldown, blocked = false, onRemove, onCancel, onRetry }: Props) {
   const { id, file, error, state, progress } = item;
   const pending = state === "uploading" || state === "queued";
   const message = item.errorStatus === 429 && cooldown > 0
@@ -24,7 +24,7 @@ export function UploadRow({ item, cooldown, onRemove, onCancel, onRetry }: Props
       </div>
       {pending ? <Button variant="ghost" onClick={() => onCancel(id)} aria-label={`Cancel ${file.name}`}>Cancel</Button>
         : <>
-          {(state === "error" || state === "cancelled") && <Button variant="outline" disabled={cooldown > 0}
+          {(state === "error" || state === "cancelled") && <Button variant="outline" disabled={blocked || cooldown > 0}
             onClick={() => onRetry(id)} aria-label={`Retry ${file.name}`}>Retry</Button>}
           <Button variant="ghost" size="icon" aria-label={`Remove ${file.name}`} onClick={() => onRemove(id)}>
             <Icon name="close" className="size-4" />

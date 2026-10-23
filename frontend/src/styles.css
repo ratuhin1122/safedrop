@@ -21,6 +21,7 @@
   --border: #d9ded3;
   --input: #c7cec0;
   --ring: #42745e;
+  --warning: #8a4b04;
   --radius: 1.5rem;
 }
 
@@ -44,6 +45,7 @@
   --border: #425045;
   --input: #5a695a;
   --ring: #b9d4bd;
+  --warning: #f0c36d;
 }
 
 @theme inline {
@@ -66,6 +68,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-warning: var(--warning);
   --radius-sm: calc(var(--radius) - 1rem);
   --radius-md: calc(var(--radius) - .5rem);
   --radius-lg: var(--radius);
