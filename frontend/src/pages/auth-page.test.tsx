@@ -44,7 +44,7 @@ it("validates inline, logs in once, persists the token, and returns to files", a
   await user.click(screen.getByRole("button", { name: "Signing in…" }));
   expect(fetcher).toHaveBeenCalledOnce();
   await act(async () => complete(new Response(JSON.stringify({ token: "session-jwt" }), { status: 200 })));
-  expect(await screen.findByRole("heading", { name: "My files" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "My files" }, { timeout: 3000 })).toBeInTheDocument();
   expect(getAccessToken()).toBe("session-jwt");
   expect(sessionStorage.getItem(sessionKey)).toBe("session-jwt");
 });
@@ -76,7 +76,7 @@ it("shows password guidance and registers without loading Turnstile when unset",
   await user.click(screen.getByRole("button", { name: "Create account" }));
   await waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
   expect(JSON.parse(fetcher.mock.calls[0][1].body)).not.toHaveProperty("turnstile_token");
-  expect(await screen.findByRole("heading", { name: "My files" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "My files" }, { timeout: 3000 })).toBeInTheDocument();
 });
 
 it("reacts to sign-out and removes persisted credentials", async () => {

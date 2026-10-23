@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
-    test: { environment: "jsdom", setupFiles: ["./src/test-setup.ts"] },
+    test: { maxWorkers: 2, environment: "jsdom", setupFiles: ["./src/test-setup.ts"] },
     server: { proxy },
   };
 });

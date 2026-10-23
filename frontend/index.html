@@ -6,14 +6,7 @@
     <meta name="theme-color" content="#f6f5f0" />
     <meta name="description" content="SafeDrop — a quiet space to share files safely." />
     <title>SafeDrop</title>
-    <script>
-      try {
-        const saved = localStorage.getItem("safedrop-theme");
-        const dark = saved === "dark" || (saved !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
-        document.documentElement.classList.toggle("dark", dark);
-        document.documentElement.style.colorScheme = dark ? "dark" : "light";
-      } catch { /* Theme provider follows system preference if storage is unavailable. */ }
-    </script>
+    <script src="/theme-bootstrap.js"></script>
   </head>
   <body>
     <div id="root"></div>

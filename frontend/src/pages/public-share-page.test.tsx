@@ -54,3 +54,23 @@ it("wrong passwords remain on the password screen", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Unlock file" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("That password didn't work");
 });
+
+it.each([[401, "This file is password protected"], [404, "Link not found"],
+  [410, "This link has expired or reached its download limit"]] as const)(
+  "handles HTTP %s returned when Download is clicked", async (status, title) => {
+    vi.mocked(getPublicShare).mockResolvedValue(info);
+    vi.mocked(downloadShare).mockRejectedValue(new ApiError("unavailable", "Unavailable", status));
+    setup();
+    fireEvent.click(await screen.findByRole("button", { name: "Download" }));
+    expect(await screen.findByRole("heading", { name: title })).toBeVisible();
+    expect(downloadShare).toHaveBeenCalledWith(token, undefined, expect.any(AbortSignal));
+  });
+
+it("reports a network error and retries the metadata request", async () => {
+  vi.mocked(getPublicShare).mockRejectedValueOnce(new ApiError("network_error", "Check your connection.", 0))
+    .mockResolvedValueOnce(info);
+  setup();
+  expect(await screen.findByRole("alert")).toHaveTextContent("Check your connection.");
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  expect(await screen.findByRole("heading", { name: "holiday.webp" })).toBeVisible();
+});

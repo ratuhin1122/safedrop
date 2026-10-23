@@ -23,7 +23,7 @@ export function auditServer() {
     })), next_cursor: "" });
     const path = resolve(root, "." + decodeURIComponent(url.pathname));
     if (path !== root && !path.startsWith(root + sep)) { res.writeHead(403); res.end(); return; }
-    if (url.pathname.startsWith("/assets/")) {
+    if (url.pathname.startsWith("/assets/") || url.pathname === "/theme-bootstrap.js") {
       try {
         await stat(path);
         res.setHeader("Content-Type", extname(path) === ".css" ? "text/css" : "text/javascript");

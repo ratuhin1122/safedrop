@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider, notifyManager } from "@tanstack/react-query";
 import { FileStatus } from "@/components/file-status";
@@ -109,4 +109,14 @@ it.each([
   expect(screen.queryByRole("list", { name: "File processing steps" })).not.toBeInTheDocument();
   await tick(30000);
   expect(getFile).toHaveBeenCalledOnce();
+});
+
+it("shows a status-fetch error and recovers through Check again", async () => {
+  vi.mocked(getFile).mockRejectedValueOnce(new Error("Status service unavailable")).mockResolvedValue(file("ready"));
+  await show();
+  expect(screen.getByRole("alert")).toHaveTextContent("Status service unavailable");
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Check again" })));
+  expect(currentStep()).toHaveTextContent("Ready");
+  await tick(30000);
+  expect(getFile).toHaveBeenCalledTimes(2);
 });

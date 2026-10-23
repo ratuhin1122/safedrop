@@ -98,3 +98,33 @@ it("aborts all active uploads on unmount and does not start waiting files", asyn
   expect(MockXHR.requests).toHaveLength(3);
   expect(MockXHR.requests.every((xhr) => xhr.aborted)).toBe(true);
 });
+
+it("honors an HTTP-date Retry-After and enables retry when the countdown ends", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-23T12:00:00Z"));
+  select(1);
+  await act(async () => MockXHR.requests[0].respond(429, { code: "rate_limited", message: "Wait." },
+    "Fri, 23 Oct 2026 12:00:03 GMT"));
+  expect(screen.getAllByText("Too many uploads, try again in 3 seconds").length).toBeGreaterThan(0);
+  expect(screen.getByRole("button", { name: "Retry photo-0.png" })).toBeDisabled();
+  await act(async () => { vi.advanceTimersByTime(3000); });
+  expect(screen.getByRole("button", { name: "Retry photo-0.png" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "Retry photo-0.png" }));
+  expect(MockXHR.requests).toHaveLength(2);
+});
+
+it("keeps an oversized file out of XHR while uploading an accepted queue item", () => {
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}>
+    <UploadPage /></QueryClientProvider>);
+  const oversized = new File(["fixture"], "huge.png", { type: "image/png" });
+  Object.defineProperty(oversized, "size", { value: 100 * 1024 * 1024 });
+  const small = new File(["png"], "small.png", { type: "image/png" });
+  fireEvent.drop(screen.getByRole("region", { name: "File drop zone" }), {
+    dataTransfer: { files: [oversized, small] },
+  });
+  expect(screen.getByRole("alert")).toHaveTextContent("Max size is 25 MB");
+  expect(MockXHR.requests).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Upload files" }));
+  expect(MockXHR.requests).toHaveLength(1);
+  expect((MockXHR.requests[0].body?.get("file") as File).name).toBe("small.png");
+});

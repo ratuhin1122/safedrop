@@ -101,3 +101,8 @@ requires a configured site key and matching server secret.
 References: [Vite env](https://vite.dev/guide/env-and-mode),
 [shadcn Vite](https://ui.shadcn.com/docs/installation/vite),
 [Radix Toast](https://www.radix-ui.com/primitives/docs/components/toast).
+
+## Container and regression tests
+
+See [container deployment and tests](docs/deployment.md) for the web service,
+same-origin proxy, CSP, environment build arguments, and verification commands.

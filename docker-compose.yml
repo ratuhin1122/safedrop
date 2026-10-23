@@ -33,6 +33,15 @@ x-app: &app
       required: false
   restart: unless-stopped
 services:
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: /v1
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
+        VITE_MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-26214400}
+    ports: ['${WEB_PORT:-3001}:8080']
+    restart: unless-stopped
   postgres:
     image: postgres:17
     environment:
@@ -58,9 +67,6 @@ services:
       retries: 10
       start_period: 180s
     restart: unless-stopped
-  # Swappable S3 image; command and healthcheck below follow MinIO's contract.
-  # Enable with STORAGE_BACKEND=s3 docker compose --profile s3 up --build.
-  # Create the private STORAGE_BUCKET before uploading in S3 mode.
   storage:
     image: ${S3_IMAGE:-minio/minio:latest}
     profiles: [s3]
@@ -86,7 +92,6 @@ services:
       HTTP_ADDR: :8080
       OTEL_SERVICE_NAME: ${API_OTEL_SERVICE_NAME:-safedrop-api}
     healthcheck:
-      # The future API must expose this readiness endpoint.
       test: [CMD, curl, --fail, --silent, http://127.0.0.1:8080/healthz]
       interval: 10s
       timeout: 3s
@@ -104,7 +109,6 @@ services:
       WORKER_JOB_TIMEOUT: ${WORKER_JOB_TIMEOUT:-1m}
       OTEL_SERVICE_NAME: ${WORKER_OTEL_SERVICE_NAME:-safedrop-worker}
     healthcheck:
-      # Process liveness only until the worker exposes a readiness probe.
       test: [CMD-SHELL, 'kill -0 1']
       interval: 15s
       timeout: 3s
