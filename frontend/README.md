@@ -58,16 +58,24 @@ the matching TURNSTILE_SECRET on the API. Expiry, errors, and failed submissions
 invalidate tokens; widgets are removed on unmount. Turnstile tokens are not logged or stored.
 See [Cloudflare rendering](https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/).
 
-## Local upload queue
+## Upload queue
 
 Home supports browsing and drag/drop of multiple JPEG, PNG, WebP, and HEIC files.
 Limits are visible before selection. Extension checks are hints, not content
-validation; the backend will still verify bytes and scan when uploads are wired.
+validation; the backend verifies bytes and scans accepted uploads.
 Rejected rows show per-file size/type/empty-file messages and can be removed.
 Selecting or dropping files makes no network calls and reads no file contents.
 The queue is held only in component memory and resets when leaving the page.
-Validation: production build and all 33 tests passed, including a 100 MB drop
-showing "Max size is 25 MB" with no fetch call. Light/dark layouts were browser-checked.
+Upload files starts the selected files using authenticated XMLHttpRequest,
+with up to three active requests, per-file progress, cancel, and manual retry.
+A 201 shows "Uploaded, checking file..."; scanning completion is not assumed.
+413/415/422 errors have specific messages. A 429 pauses new uploads and retries
+with a live Retry-After countdown; missing/invalid headers default to 60 seconds.
+Waiting files resume when the pause expires; the failed file needs manual retry.
+Unmounting aborts active requests. Cancellation cannot undo server-side commits.
+Retries after an uncertain network failure may create another server file.
+Validation: production build and all 40 tests pass, including mocked XHR progress,
+three concurrent slots, cancellation/retry, and a live 429 countdown that disables Upload files.
 
 Validation: type checking, production build, auth/route/session tests, and mocked
 Turnstile lifecycle tests pass. Browser checks confirmed /files redirects to
