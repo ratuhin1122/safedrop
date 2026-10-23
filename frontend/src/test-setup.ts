@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
+import { setAccessToken } from "@/api/session";
 
 // jsdom does not implement the browser pointer-capture API used by Radix swipe.
 Object.assign(HTMLElement.prototype, {
@@ -17,6 +18,7 @@ Object.defineProperty(window, "matchMedia", { writable: true, value: vi.fn().moc
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  setAccessToken(null);
   document.documentElement.classList.remove("dark");
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
