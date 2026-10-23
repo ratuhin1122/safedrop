@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/icons";
 import { formatBytes } from "@/lib/upload";
 import type { QueueItem } from "@/lib/upload-state";
+import { FileStatus } from "@/components/file-status";
 
 type Props = { item: QueueItem; cooldown: number; onRemove: (id: number) => void;
   onCancel: (id: number) => void; onRetry: (id: number) => void };
@@ -13,7 +14,7 @@ export function UploadRow({ item, cooldown, onRemove, onCancel, onRetry }: Props
     ? `Too many uploads, try again in ${cooldown} seconds` : error;
   const label = { selected: "Selected", invalid: "Not added", queued: "Waiting to upload",
     uploading: progress === 100 ? "Finishing upload…" : `Uploading · ${progress}%`,
-    uploaded: "Uploaded, checking file...", error: "Upload failed", cancelled: "Cancelled" }[state];
+    uploaded: "Uploaded", error: "Upload failed", cancelled: "Cancelled" }[state];
 
   return <li className="rounded-lg border bg-background/50 p-4">
     <div className="flex items-center gap-3">
@@ -35,6 +36,6 @@ export function UploadRow({ item, cooldown, onRemove, onCancel, onRetry }: Props
         className="h-2 w-full overflow-hidden rounded-full accent-primary" />
     </div>}
     {message && <p role="alert" className="mt-2 text-sm text-destructive"><span className="sr-only">{file.name}: </span>{message}</p>}
-    {state === "uploaded" && <span role="status" className="sr-only">{file.name}: Uploaded, checking file...</span>}
+    {state === "uploaded" && item.fileId && <FileStatus id={item.fileId} name={file.name} />}
   </li>;
 }

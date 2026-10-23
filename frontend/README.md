@@ -77,6 +77,22 @@ Retries after an uncertain network failure may create another server file.
 Validation: production build and all 40 tests pass, including mocked XHR progress,
 three concurrent slots, cancellation/retry, and a live 429 countdown that disables Upload files.
 
+## Processing status
+
+Uploaded queue rows use useFileStatus with GET /files/{id} through TanStack Query.
+Polling starts immediately, then waits 2, 4, 8, and at most 10 seconds between
+checks. Ready/rejected states stop automatic requests, including on remount.
+Hidden tabs disable polling and cancel in-flight requests; visible tabs resume
+unfinished queries. Query cancellation also propagates on unmount.
+The stepper shows Uploaded, Scanning, Processing, Ready. Known virus, invalid-image,
+and pixel-limit reasons get friendly rejection messages; unknown reasons use a
+safe fallback. The current backend emits virus or generic processing_error.
+Temporary status-request failures show the API message and a Check again action;
+401/403/404/410 stop automatic checks. Status 429 respects Retry-After when polling.
+Validation: production build and all 47 tests pass, including step transitions,
+terminal polling stop, the 10-second cap, visibility pause/resume, and cancellation.
+Reference: [TanStack Query polling](https://tanstack.com/query/latest/docs/framework/react/guides/polling).
+
 Validation: type checking, production build, auth/route/session tests, and mocked
 Turnstile lifecycle tests pass. Browser checks confirmed /files redirects to
 /login, inline validation, and dark registration. Live Turnstile verification

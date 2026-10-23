@@ -3,6 +3,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { UploadPage } from "@/pages/upload-page";
 import { MockXHR } from "@/api/mock-xhr.test-data";
 import { setAccessToken } from "@/api/session";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fileFixture } from "@/api/fixtures.test-data";
+
+vi.mock("@/api/files", () => ({ getFile: vi.fn(async () => ({ ...fileFixture, status: "uploaded" })) }));
 
 const response = { id: "11111111-1111-4111-8111-111111111111", status: "uploaded" };
 
@@ -15,7 +19,9 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 function select(count: number) {
-  render(<UploadPage />);
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}>
+    <UploadPage />
+  </QueryClientProvider>);
   const files = Array.from({ length: count }, (_, i) => new File(["png"], `photo-${i}.png`, { type: "image/png" }));
   fireEvent.drop(screen.getByRole("region", { name: "File drop zone" }), { dataTransfer: { files } });
   fireEvent.click(screen.getByRole("button", { name: "Upload files" }));
