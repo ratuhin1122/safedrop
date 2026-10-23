@@ -10,9 +10,9 @@ npm install
 npm run dev
 ```
 
-The Vite server prints its local URL. The content area is intentionally empty;
-Upload, My files, Sign in, and Create account are route shells for later steps.
-The user menu truthfully shows a signed-out state. Authentication is not wired.
+The Vite server prints its local URL. Upload and My files remain content shells;
+Sign in and Create account are working validated forms. My files requires login.
+The user menu reflects the session and offers sign-out when authenticated.
 The theme toggle supports keyboard activation, follows system preference until
 saved, and persists light/dark preference when browser storage is available.
 
@@ -24,7 +24,8 @@ if relaxing that size rule to pin transitive dependencies.
 
 ## Configuration and structure
 
-- VITE_API_URL: API base including /v1, absolute HTTP(S) URL or same-origin path.
+- VITE_API_URL: API base including /v1; default /v1 uses the development proxy.
+- API_PROXY_TARGET: Vite-only Go API origin; configured in .env, not bundled.
 - VITE_TURNSTILE_SITE_KEY: public browser key; no private keys belong in VITE_*.
 - src/api: schema-validated client; callers pass a zod response schema and token.
 - src/components: header/layout, theme/toast providers, editable shadcn UI primitives.
@@ -38,13 +39,28 @@ Toast usage: `const { toast } = useToast()` then
 F8 focuses notifications; Escape dismisses the focused toast. Closing pauses
 while hovered/focused, and reduced-motion preferences disable transitions.
 
-The Go API currently has no cross-origin browser policy. For API screens, route
-the frontend and /v1 through one origin or configure an explicit backend CORS
-policy before using a separate API origin. The empty shell makes no API calls.
+The Go API has no cross-origin browser policy. The example env makes Vite proxy
+/v1 and /s to API_PROXY_TARGET. Start the migrated Go service separately. In
+production, proxy these paths through one origin or configure backend CORS.
 Production hosting must fall back to index.html for client routes.
 
-Validation: six tests and the production build passed. The Vite dev layout was
-checked in the browser in both light and dark mode, including the user menu.
+## Authentication
+
+AuthProvider stores the JWT in memory and sessionStorage (per origin/tab), restores
+it on reload, and clears it on sign-out or a protected 401. ProtectedRoute redirects
+signed-out /files visits to /login and preserves the local return path. Session
+changes clear TanStack Query's cache. The backend remains the authorization authority.
+Forms provide associated inline errors, loading/disabled states, password visibility,
+and registration passphrase guidance. VITE_TURNSTILE_SITE_KEY enables the explicit
+Cloudflare widget on registration only; empty skips its script and widget. Configure
+the matching TURNSTILE_SECRET on the API. Expiry, errors, and failed submissions
+invalidate tokens; widgets are removed on unmount. Turnstile tokens are not logged or stored.
+See [Cloudflare rendering](https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/).
+
+Validation: type checking, production build, auth/route/session tests, and mocked
+Turnstile lifecycle tests pass. Browser checks confirmed /files redirects to
+/login, inline validation, and dark registration. Live Turnstile verification
+requires a configured site key and matching server secret.
 
 References: [Vite env](https://vite.dev/guide/env-and-mode),
 [shadcn Vite](https://ui.shadcn.com/docs/installation/vite),

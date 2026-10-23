@@ -13,3 +13,20 @@ it("clears the session and redirects to login without a redirect loop", () => {
   handleUnauthorized();
   expect(assign).toHaveBeenCalledTimes(1);
 });
+
+it("restores the session from sessionStorage after a module reload", async () => {
+  sessionStorage.setItem("safedrop-token", "restored-jwt");
+  vi.resetModules();
+  const restored = await import("@/api/session");
+  expect(restored.getAccessToken()).toBe("restored-jwt");
+  restored.setAccessToken(null);
+  expect(sessionStorage.getItem("safedrop-token")).toBeNull();
+});
+
+it("keeps a memory session when storage is unavailable", () => {
+  const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("Storage blocked"); });
+  try {
+    setAccessToken("memory-session");
+    expect(getAccessToken()).toBe("memory-session");
+  } finally { write.mockRestore(); }
+});

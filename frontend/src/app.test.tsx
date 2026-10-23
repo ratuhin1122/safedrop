@@ -6,9 +6,10 @@ import { App } from "@/app";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/toast-provider";
 import { useToast } from "@/hooks/use-toast";
+import { AuthProvider } from "@/components/auth-provider";
 
 function shell() {
-  return render(<ThemeProvider><ToastProvider><MemoryRouter><App /></MemoryRouter></ToastProvider></ThemeProvider>);
+  return render(<ThemeProvider><ToastProvider><AuthProvider><MemoryRouter><App /></MemoryRouter></AuthProvider></ToastProvider></ThemeProvider>);
 }
 
 describe("layout", () => {

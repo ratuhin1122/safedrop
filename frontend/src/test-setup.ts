@@ -18,6 +18,7 @@ Object.defineProperty(window, "matchMedia", { writable: true, value: vi.fn().moc
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  sessionStorage.clear();
   setAccessToken(null);
   document.documentElement.classList.remove("dark");
   vi.unstubAllGlobals();

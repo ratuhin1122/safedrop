@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useTheme } from "@/hooks/use-theme";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 export function Header() {
   const { theme, toggleTheme } = useTheme();
+  const { isAuthenticated, signOut } = useAuth();
   return <header className="flex flex-wrap items-center justify-between gap-4 px-page py-5 sm:py-7">
     <Link to="/" aria-label="SafeDrop home" className="flex items-center gap-2.5 rounded-md">
       <span className="grid size-10 place-items-center rounded-2xl bg-primary text-primary-foreground">
@@ -35,10 +37,15 @@ export function Header() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuLabel className="px-3 py-2 text-xs text-muted-foreground">Not signed in</DropdownMenuLabel>
+          <DropdownMenuLabel className="px-3 py-2 text-xs text-muted-foreground">{isAuthenticated ? "Your account" : "Not signed in"}</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild><Link to="/login">Sign in</Link></DropdownMenuItem>
-          <DropdownMenuItem asChild><Link to="/register">Create account</Link></DropdownMenuItem>
+          {isAuthenticated ? <>
+            <DropdownMenuItem asChild><Link to="/files">My files</Link></DropdownMenuItem>
+            <DropdownMenuItem onSelect={signOut}>Sign out</DropdownMenuItem>
+          </> : <>
+            <DropdownMenuItem asChild><Link to="/login">Sign in</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link to="/register">Create account</Link></DropdownMenuItem>
+          </>}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

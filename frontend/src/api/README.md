@@ -21,9 +21,9 @@ that final /v1 segment while preserving origin and prefix. No host is hardcoded.
 The server's returned URLs are metadata; download functions construct trusted
 endpoint paths rather than sending JWTs to response-provided URLs.
 
-Successful register/login stores the JWT in memory. An auth provider can call
-setAccessToken after restoring a session; setAccessToken(null) clears it.
-No credential is persisted to browser storage. Protected requests automatically
+Successful register/login stores the JWT in memory and sessionStorage. AuthProvider
+restores it on reload; setAccessToken(null) clears both copies and notifies consumers.
+Protected requests automatically
 include the current JWT; apiRequest also accepts an explicit token override.
 
 Protected 401 responses clear the token and redirect to /login, unless already
