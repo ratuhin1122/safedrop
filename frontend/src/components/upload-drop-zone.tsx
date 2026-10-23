@@ -1,3 +1,4 @@
+import { useFilePickerShortcut } from "@/hooks/use-file-picker-shortcut";
 import { useRef, useState, type DragEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/icons";
@@ -8,6 +9,7 @@ type Props = { maxBytes: number; onFiles: (files: File[]) => void; disabled?: bo
 
 export function UploadDropZone({ maxBytes, onFiles, disabled = false }: Props) {
   const input = useRef<HTMLInputElement>(null);
+  useFilePickerShortcut(input, disabled);
   const depth = useRef(0);
   const [dragging, setDragging] = useState(false);
 
@@ -48,7 +50,8 @@ export function UploadDropZone({ maxBytes, onFiles, disabled = false }: Props) {
         if (!disabled) onFiles(Array.from(event.currentTarget.files ?? []));
         event.currentTarget.value = "";
       }} />
-    <Button type="button" disabled={disabled} onClick={() => input.current?.click()} aria-describedby="upload-limits">Browse files</Button>
+    <Button type="button" disabled={disabled} onClick={() => input.current?.click()} aria-describedby="upload-limits picker-shortcut" aria-keyshortcuts="Alt+Shift+U">Browse files</Button>
+    <p id="picker-shortcut" className="mt-3 text-xs text-muted-foreground">Shortcut: Alt + Shift + U</p>
     {!disabled && <p className="mt-4 text-xs text-muted-foreground" aria-live="polite">{dragging ? "Release to check these files." : "or drag and drop multiple files"}</p>}
   </div>;
 }

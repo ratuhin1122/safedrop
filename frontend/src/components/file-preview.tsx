@@ -23,7 +23,7 @@ export function FilePreview({ file }: { file: FileItem }) {
   }, [file]);
   if (error) return <p role="alert" className="text-sm text-destructive">Could not load preview: {error}</p>;
   if (!images.length) return <p className="py-10 text-center text-sm text-muted-foreground">Preview unavailable.</p>;
-  return <img src={images[0].url} srcSet={images.map((image) => image.url + " " + image.width + "w").join(", ")}
+  return <img loading="lazy" decoding="async" src={images[0].url} srcSet={images.map((image) => image.url + " " + image.width + "w").join(", ")}
     sizes="(min-width: 640px) 432px, calc(100vw - 48px)" alt={file.original_name}
     className="max-h-80 w-full rounded-lg bg-secondary object-contain" />;
 }

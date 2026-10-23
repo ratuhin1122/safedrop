@@ -59,3 +59,11 @@ it("shows a specific toast message and lets the user dismiss it", async () => {
   await user.click(screen.getByRole("button", { name: "Dismiss notification" }));
   await waitFor(() => expect(screen.queryByRole("button", { name: "Dismiss notification" })).not.toBeInTheDocument());
 });
+
+it("renders the 404 page for an unknown route", async () => {
+  render(<ThemeProvider><ToastProvider><AuthProvider><MemoryRouter initialEntries={["/missing-page"]}>
+    <App />
+  </MemoryRouter></AuthProvider></ToastProvider></ThemeProvider>);
+  expect(await screen.findByRole("heading", { name: "Page not found" })).toBeVisible();
+  expect(screen.getByRole("link", { name: "Back to upload" })).toHaveAttribute("href", "/");
+});

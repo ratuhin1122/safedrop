@@ -16,7 +16,9 @@ export function UploadRow({ item, cooldown, blocked = false, onRemove, onCancel,
     uploading: progress === 100 ? "Finishing upload…" : `Uploading · ${progress}%`,
     uploaded: "Uploaded", error: "Upload failed", cancelled: "Cancelled" }[state];
 
+  const announced = state === "uploading" ? "Uploading " + Math.floor(progress / 10) * 10 + "%" : label;
   return <li className="rounded-lg border bg-background/50 p-4">
+    <span className="sr-only" aria-live="polite" aria-atomic="true">{file.name}: {announced}</span>
     <div className="flex items-center gap-3">
       <div className="min-w-0 flex-1">
         <p className="break-all text-sm font-medium">{file.name}</p>
@@ -35,7 +37,7 @@ export function UploadRow({ item, cooldown, blocked = false, onRemove, onCancel,
       <progress max={100} value={progress} aria-label={`Upload progress for ${file.name}`}
         className="h-2 w-full overflow-hidden rounded-full accent-primary" />
     </div>}
-    {message && <p role="alert" className="mt-2 text-sm text-destructive"><span className="sr-only">{file.name}: </span>{message}</p>}
+    {message && <p role="alert" aria-live="assertive" aria-atomic="true" className="mt-2 text-sm text-destructive"><span className="sr-only">{file.name}: </span>{message}</p>}
     {state === "uploaded" && item.fileId && <FileStatus id={item.fileId} name={file.name} />}
   </li>;
 }

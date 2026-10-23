@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { RouteLoading } from "@/components/route-loading";
 import { Outlet } from "react-router";
 import { Header } from "@/components/header";
 
@@ -9,7 +11,7 @@ export function Layout() {
     <div className="mx-auto max-w-7xl">
       <Header />
       <main id="main-content" tabIndex={-1} className="px-page pb-section pt-4 focus:outline-none sm:pt-8">
-        <Outlet />
+        <Suspense fallback={<RouteLoading />}><Outlet /></Suspense>
       </main>
     </div>
   </div>;

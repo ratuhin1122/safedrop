@@ -1,3 +1,4 @@
+import { ErrorBoundary } from "@/components/error-boundary";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
@@ -12,11 +13,11 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, ref
 const clearSessionQueries = () => queryClient.clear();
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
+  <StrictMode><ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider><ToastProvider><AuthProvider onSessionChange={clearSessionQueries}>
         <BrowserRouter><App /></BrowserRouter>
       </AuthProvider></ToastProvider></ThemeProvider>
     </QueryClientProvider>
-  </StrictMode>,
+  </ErrorBoundary></StrictMode>,
 );

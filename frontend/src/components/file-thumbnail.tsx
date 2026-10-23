@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
+import { useNearViewport } from "@/hooks/use-near-viewport";
+import { useEffect, useRef, useState } from "react";
 import type { FileItem } from "@/api/schemas";
 import { apiResponse } from "@/api/client";
 import { getApiBase } from "@/lib/env";
 
 export function FileThumbnail({ file }: { file: FileItem }) {
+  const container = useRef<HTMLDivElement>(null);
+  const visible = useNearViewport(container);
   const variant = file.status === "ready" ? file.variants.w375 : null;
   const [source, setSource] = useState<{ url: string; source: string }>();
   useEffect(() => {
-    if (!variant) return;
+    if (!variant || !visible) return;
     const abort = new AbortController();
     let objectUrl: string | undefined;
     async function load() {
@@ -26,10 +29,10 @@ export function FileThumbnail({ file }: { file: FileItem }) {
     }
     void load();
     return () => { abort.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [variant]);
-  return <div className="grid h-full min-h-16 w-full place-items-center overflow-hidden bg-secondary text-muted-foreground">
+  }, [variant, visible]);
+  return <div ref={container} className="grid h-full min-h-16 w-full place-items-center overflow-hidden bg-secondary text-muted-foreground">
     {variant && source?.source === variant.url
-      ? <img src={source.url} alt="" loading="lazy" className="h-full w-full object-cover" />
-      : <span className="px-2 text-center text-xs">{file.status === "ready" ? "No preview" : "Preview pending"}</span>}
+      ? <img src={source.url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+      : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true" className="size-8"><path d="M4 3h11l5 5v13H4zM14 3v6h6M7 16l3-3 3 3 2-2 3 4" /></svg>}
   </div>;
 }

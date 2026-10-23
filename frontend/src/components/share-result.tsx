@@ -33,7 +33,7 @@ export function ShareResult({ url, expiresAt }: { url: string; expiresAt: string
     <Input id="generated-share-url" readOnly value={url} onFocus={(event) => event.currentTarget.select()} />
     <Button className="w-full" disabled={copying} onClick={() => { void copy(); }}>{copying ? "Copying…" : "Copy link"}</Button>
     {copyError && <p role="alert" className="text-sm text-destructive">{copyError}</p>}
-    {qr ? <img src={qr} width={256} height={256} alt="QR code for your share link" className="mx-auto max-w-full rounded-md" />
+    {qr ? <img loading="lazy" decoding="async" src={qr} width={256} height={256} alt="QR code for your share link" className="mx-auto max-w-full rounded-md" />
       : <p className="text-center text-sm text-muted-foreground">{qrError || "Creating QR code…"}</p>}
     <p className="text-center text-xs text-muted-foreground">Anyone with this link can access the file, subject to your limits.</p>
   </div>;

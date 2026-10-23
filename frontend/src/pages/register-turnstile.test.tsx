@@ -19,7 +19,7 @@ it("requires a challenge and resets its single-use token after a failed registra
   vi.stubGlobal("fetch", fetcher);
   const view = render(<ThemeProvider><AuthProvider><MemoryRouter initialEntries={["/register"]}><App /></MemoryRouter></AuthProvider></ThemeProvider>);
   const user = userEvent.setup();
-  await user.type(screen.getByLabelText("Email address"), "a@example.com");
+  await user.type(await screen.findByLabelText("Email address"), "a@example.com");
   await user.type(screen.getByLabelText("Password", { exact: true }), "a long unique password");
   await user.click(screen.getByRole("button", { name: "Create account" }));
   expect(await screen.findByText("Complete the security check before creating an account.")).toBeVisible();

@@ -84,7 +84,7 @@
   body { margin: 0; min-width: 320px; background: var(--background); color: var(--foreground); }
   button, a { -webkit-tap-highlight-color: transparent; }
   button:not(:disabled) { cursor: pointer; }
-  :focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+  :focus-visible { outline: 3px solid var(--ring); outline-offset: 4px; scroll-margin: 1rem; }
   ::selection { background: var(--accent); color: var(--accent-foreground); }
 }
 
