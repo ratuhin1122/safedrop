@@ -11,7 +11,8 @@ RUN go mod download
 COPY . .
 ENV CGO_ENABLED=1
 RUN go build -trimpath -o /out/api ./cmd/api \
-    && go build -trimpath -o /out/worker ./cmd/worker
+    && go build -trimpath -o /out/worker ./cmd/worker \
+    && go build -trimpath -o /out/migrate ./cmd/migrate
 
 FROM build AS test
 RUN go test ./...
@@ -28,6 +29,7 @@ RUN apt-get update \
     && chmod 700 /data /data/incoming /data/final
 COPY --from=build /out/api /usr/local/bin/api
 COPY --from=build /out/worker /usr/local/bin/worker
+COPY --from=build /out/migrate /usr/local/bin/migrate
 WORKDIR /data
 USER 10001:10001
 EXPOSE 8080

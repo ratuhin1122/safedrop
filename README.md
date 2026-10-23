@@ -1,53 +1,53 @@
-# safedrop
+# SafeDrop
 
-A Go service for streamed image uploads, background scanning/conversion, and sharing through expiring links. Currently accepts JPEG, PNG, WebP, and HEIC;
-arbitrary file uploads are not enabled.
+**Upload. Scan. Share with an expiry.**
 
-Stack: Go 1.25, chi, pgx v5, sqlc, goose, River, govips/libvips, clamd, aws-sdk-go-v2 with S3-compatible storage or a local volume, Compose, and slog.
+![Go 1.25](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white) ![React 19](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white) ![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white) ![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+
+![SafeDrop upload and sharing demo](<Test (online-video-cutter.com).gif>)
+
+Stream JPEG, PNG, WebP, and HEIC images through virus scanning and background conversion, then share them with expiring links. Built with Go, React, PostgreSQL, River, libvips, and ClamAV.
+
 ## Architecture
 
-```text
-Client -> chi API -> authenticate / limit / validate -> private incoming/
-                 -> PostgreSQL transaction: files row + River job
-River -> worker -> clamd INSTREAM -> govips -> private final/
-                   | infected        | WebP/AVIF: 375/768/1200px
-                   v                 v
-                rejected           ready -> remove incoming original
-Client -> /s/{token} -> expiry/password/download checks -> stream or signed URL
-API + worker :9090 -> Prometheus -> Grafana [optional observability profile]
-API -> traceparent in River args -> worker -> OTLP/Jaeger [optional tracing]
+```mermaid
+flowchart LR
+    Browser["React web"] --> Web["nginx"] --> API["Go API<br/>Auth · Limits · Validation"]
+    API --> Incoming["Private incoming/"]
+    API --> DB[("PostgreSQL<br/>Files + River jobs")]
+    DB --> Worker["River worker"] --> Scan{"ClamAV scan"}
+    Incoming --> Scan
+    Scan -->|Clean| Convert["libvips<br/>WebP / AVIF variants"] --> Final["Private final/"]
+    Scan -->|Infected| Rejected["Rejected<br/>Original removed"]
+    API --> Share["Share endpoint<br/>Expiry · Password · Download cap"] --> Final
+    API & Worker -.-> Observe["Optional observability<br/>Prometheus · Grafana · OTLP / Jaeger"]
 ```
 
 Lifecycle: `uploaded -> scanning -> processing -> ready | rejected`.
-Validation spools to disk; storage streams; native conversion uses disk files.
-Files are never buffered whole in Go memory. Only passing files reach final/.
-Jobs retry with backoff, check status for idempotency, and reject exhausted failures.
+Validation and native conversion use disk files; storage streams without buffering whole files in Go memory. Only passing files reach final/. Jobs retry with backoff, check status for idempotency, and reject exhausted failures.
 
 ## Setup with Docker Compose
 
 Install Docker with Linux containers and Compose v2 supporting optional env files
 and dependencies. Copy `.env.example` to `.env` and set JWT_SECRET to a secure
 random secret of at least 32 bytes. Default storage is a named local volume.
-Run from the repository root; these examples use POSIX shell quoting:
+From the repository root, start the entire project with one command:
 
-```sh
-cp .env.example .env
-docker build --target build -t safedrop-build .
-docker compose up -d --wait postgres clamd
-docker run --rm --network safedrop_default \
-  -e DATABASE_URL='postgres://safedrop:safedrop@postgres:5432/safedrop?sslmode=disable' \
-  safedrop-build sh -c 'go run github.com/pressly/goose/v3/cmd/goose@v3.24.1 -dir migrations postgres "$DATABASE_URL" up && go run ./cmd/migrate'
-docker compose up --build -d
-curl http://localhost:8080/healthz
-```
+~~~sh
+make up
+~~~
 
-The one-off image runs goose then River migrations; fetching goose needs network
-access. Repeat migrations before starting updated binaries. Adjust the network
-name if overriding Compose's project name, safedrop. ClamAV's first signature
-download can take minutes. `/healthz` is API liveness, not dependency readiness.
-Use `docker compose logs -f api worker`. `docker compose down` preserves data;
-`docker compose down -v` deletes named volumes and their data.
+Without Make, use docker compose up --build -d --wait --wait-timeout 300.
+This builds and starts web, API, worker, PostgreSQL, and ClamAV. A one-shot
+migrate service applies goose then River migrations before API/worker start.
+Open http://localhost:3001 (or WEB_PORT from .env). The browser uses nginx's
+same-origin API proxy, so changing API_PORT does not break the frontend.
+The existing .env and named volumes are preserved.
 
+Use make ps to check services, make logs to follow logs, and make down to stop
+everything while keeping stored data. First startup may take several minutes
+for images and ClamAV signatures. /healthz is API liveness, not dependency
+readiness. docker compose down -v deletes named volumes and their data.
 For S3 mode, set STORAGE_BACKEND=s3 and STORAGE_* credentials/bucket, then run
 `docker compose --profile s3 up --build -d`. Provision the private bucket before
 uploading. S3_IMAGE is swappable; adjust its command/healthcheck for that server.

@@ -1,6 +1,10 @@
 # Container deployment and tests
 
-From the repository root:
+For the complete project, run make up from the repository root, then open
+http://localhost:3001 (WEB_PORT overrides it). This includes migrations and all
+backend dependencies. make down stops containers while retaining data.
+
+For only the frontend container:
 
     docker compose up --build -d web
 
@@ -43,10 +47,3 @@ Container smoke checks:
 
 The SPA responses include Content-Security-Policy. API responses retain API
 status codes and never fall back to HTML.
-
-## Validation in this workspace
-
-The production build and all 95 tests pass. docker compose config --quiet passes.
-Container startup could not be verified: Docker Desktop fails while initializing
-its Inference Manager's dockerInference socket, before its engine is available.
-After repairing Docker Desktop, rerun the container smoke checks above.

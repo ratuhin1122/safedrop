@@ -1,5 +1,6 @@
 name: safedrop
 x-app: &app
+  image: safedrop-backend
   build:
     context: .
   env_file:
@@ -21,9 +22,9 @@ x-app: &app
     RATE_LIMIT_BURST: ${RATE_LIMIT_BURST:-10}
     METRICS_ADDR: :9090
     OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
-  volumes:
-    - uploads:/data
+  volumes: [uploads:/data]
   depends_on:
+    migrate: {condition: service_completed_successfully}
     postgres:
       condition: service_healthy
     clamd:
@@ -33,6 +34,14 @@ x-app: &app
       required: false
   restart: unless-stopped
 services:
+  migrate:
+    image: safedrop-backend
+    build: .
+    command: [/usr/local/bin/migrate, -all]
+    environment:
+      DATABASE_URL: ${COMPOSE_DATABASE_URL:-postgres://safedrop:safedrop@postgres:5432/safedrop?sslmode=disable}
+    depends_on: {postgres: {condition: service_healthy}}
+    restart: "no"
   web:
     build:
       context: ./frontend
@@ -48,8 +57,7 @@ services:
       POSTGRES_USER: safedrop
       POSTGRES_PASSWORD: safedrop
       POSTGRES_DB: safedrop
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
+    volumes: [postgres-data:/var/lib/postgresql/data]
     healthcheck:
       test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 5s
@@ -58,8 +66,7 @@ services:
     restart: unless-stopped
   clamd:
     image: clamav/clamav:stable
-    volumes:
-      - clamav-data:/var/lib/clamav
+    volumes: [clamav-data:/var/lib/clamav]
     healthcheck:
       test: [CMD, clamdcheck.sh]
       interval: 30s
@@ -74,8 +81,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY_ID:-change-me}
       MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_ACCESS_KEY:-change-me}
-    volumes:
-      - s3-data:/data
+    volumes: [s3-data:/data]
     healthcheck:
       test: [CMD-SHELL, 'mc alias set health http://127.0.0.1:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null && mc ready health']
       interval: 10s
@@ -85,8 +91,7 @@ services:
   api:
     <<: *app
     command: [/usr/local/bin/api]
-    ports:
-      - '${API_PORT:-8080}:8080'
+    ports: ['${API_PORT:-8080}:8080']
     environment:
       <<: *app-env
       HTTP_ADDR: :8080
@@ -139,10 +144,4 @@ services:
     ports:
       - '127.0.0.1:16686:16686'
       - '127.0.0.1:4318:4318'
-volumes:
-  postgres-data:
-  clamav-data:
-  s3-data:
-  uploads:
-  prometheus-data:
-  grafana-data:
+volumes: {postgres-data: {}, clamav-data: {}, s3-data: {}, uploads: {}, prometheus-data: {}, grafana-data: {}}

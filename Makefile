@@ -1,8 +1,21 @@
-.PHONY: run worker test lint migrate migrate-river
+.PHONY: up down logs ps run worker test lint migrate migrate-river
 
 GO ?= go
 GOOSE ?= goose
 MIGRATE_COMMAND ?= up
+COMPOSE ?= docker compose
+
+up:
+	$(COMPOSE) up --build -d --wait --wait-timeout 300
+
+down:
+	$(COMPOSE) down
+
+logs:
+	$(COMPOSE) logs -f api worker web migrate
+
+ps:
+	$(COMPOSE) ps -a
 
 # Export DATABASE_URL in your shell; .env.example is a configuration reference.
 run:
