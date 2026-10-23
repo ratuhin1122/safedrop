@@ -1,3 +1,5 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+vi.mock("@/api/files", () => ({ listFiles: vi.fn(async () => ({ items: [], next_cursor: "" })) }));
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
@@ -10,7 +12,7 @@ import { getAccessToken, setAccessToken, sessionKey } from "@/api/session";
 vi.mock("@/lib/env", () => ({ getApiBase: () => "/v1", turnstileSiteKey: "" }));
 
 function page(path: string) {
-  return render(<ThemeProvider><AuthProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></AuthProvider></ThemeProvider>);
+  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}><ThemeProvider><AuthProvider><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></AuthProvider></ThemeProvider></QueryClientProvider>);
 }
 
 async function fill(password = "a long unique passphrase") {

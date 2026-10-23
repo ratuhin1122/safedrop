@@ -1,6 +1,6 @@
 import { Route, Routes } from "react-router";
 import { Layout } from "@/components/layout";
-import { EmptyPage } from "@/pages/empty-page";
+import { FilesPage } from "@/pages/files-page";
 import { NotFound } from "@/pages/not-found";
 import { AuthPage } from "@/pages/auth-page";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -11,7 +11,7 @@ export function App() {
     <Route element={<Layout />}>
       <Route index element={<UploadPage />} />
       <Route element={<ProtectedRoute />}>
-        <Route path="files" element={<EmptyPage title="My files" />} />
+        <Route path="files" element={<FilesPage />} />
       </Route>
       <Route path="login" element={<AuthPage key="login" />} />
       <Route path="register" element={<AuthPage key="register" creating />} />
