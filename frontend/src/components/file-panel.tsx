@@ -1,3 +1,4 @@
+import { ShareDialog } from "@/components/share-dialog";
 import { useState } from "react";
 import type { FileItem } from "@/api/schemas";
 import { variantBlob } from "@/api/variant-media";
@@ -9,6 +10,7 @@ import { useDeleteFile } from "@/hooks/use-delete-file";
 import { formatBytes } from "@/lib/upload";
 
 export function FilePanel({ file, onClose }: { file: FileItem; onClose: () => void }) {
+  const [sharing, setSharing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -46,9 +48,11 @@ export function FilePanel({ file, onClose }: { file: FileItem; onClose: () => vo
     <div className="mt-6 flex flex-wrap gap-3">
       {file.status === "ready" && variant && <Button disabled={downloading} onClick={() => { void download(); }}>
         {downloading ? "Downloading…" : "Download"}</Button>}
+      {file.status === "ready" && <Button onClick={() => setSharing(true)}>Share</Button>}
       <Button variant="outline" className="text-destructive" onClick={() => setConfirm(true)}>Delete file</Button>
     </div>
     {file.status !== "rejected" && <FileShares fileId={file.id} />}
+    {sharing && <ShareDialog fileId={file.id} onClose={() => setSharing(false)} />}
     {confirm && <Modal label="Confirm deletion" onClose={() => setConfirm(false)}>
       <h2 className="text-xl font-semibold">Delete this file?</h2>
       <p className="my-4 text-sm text-muted-foreground">Its share links will stop working. You can undo while the notification is open.</p>
