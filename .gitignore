@@ -10,6 +10,9 @@
 *.test
 *.out
 /coverage/
+node_modules/
+frontend/dist/
+*.tsbuildinfo
 
 # Local storage and scratch files
 /data/

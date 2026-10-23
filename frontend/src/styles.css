@@ -1,0 +1,90 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #f6f5f0;
+  --foreground: #242f2c;
+  --card: #fffefa;
+  --card-foreground: #242f2c;
+  --popover: #fffefa;
+  --popover-foreground: #242f2c;
+  --primary: #365b4c;
+  --primary-foreground: #ffffff;
+  --secondary: #e8ede4;
+  --secondary-foreground: #304638;
+  --muted: #eeeee6;
+  --muted-foreground: #60685f;
+  --accent: #e4eadd;
+  --accent-foreground: #304638;
+  --destructive: #a52f38;
+  --destructive-foreground: #ffffff;
+  --border: #d9ded3;
+  --input: #c7cec0;
+  --ring: #42745e;
+  --radius: 1.5rem;
+}
+
+.dark {
+  --background: #171e1b;
+  --foreground: #eef2e9;
+  --card: #202a25;
+  --card-foreground: #eef2e9;
+  --popover: #26312b;
+  --popover-foreground: #eef2e9;
+  --primary: #b9d4bd;
+  --primary-foreground: #1e3529;
+  --secondary: #303e34;
+  --secondary-foreground: #e3ecdd;
+  --muted: #27332b;
+  --muted-foreground: #b0bdae;
+  --accent: #36473a;
+  --accent-foreground: #edf4e8;
+  --destructive: #ffb4ba;
+  --destructive-foreground: #591a23;
+  --border: #425045;
+  --input: #5a695a;
+  --ring: #b9d4bd;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 1rem);
+  --radius-md: calc(var(--radius) - .5rem);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + .5rem);
+  --spacing: .25rem;
+  --spacing-page: clamp(1rem, 4vw, 3rem);
+  --spacing-section: clamp(2rem, 6vw, 5rem);
+  --font-sans: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  * { border-color: var(--border); }
+  body { margin: 0; min-width: 320px; background: var(--background); color: var(--foreground); }
+  button, a { -webkit-tap-highlight-color: transparent; }
+  button:not(:disabled) { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+  ::selection { background: var(--accent); color: var(--accent-foreground); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
